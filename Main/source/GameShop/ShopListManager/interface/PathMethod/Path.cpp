@@ -13,8 +13,10 @@
 #include "Path.h"
 
 #include <fstream>
+#ifndef __ANDROID__
 #include <crtdbg.h>
 #include <strsafe.h>
+#endif
 
 TCHAR* Path::GetCurrentFullPath(TCHAR* szPath)
 {

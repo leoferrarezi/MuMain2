@@ -1574,7 +1574,7 @@ bool SEASON3B::CFenrirRepairMsgBoxLayout::SetLayout()
 CALLBACK_RESULT SEASON3B::CFenrirRepairMsgBoxLayout::OkBtnDown(class CNewUIMessageBoxBase* pOwner, const leaf::xstreambuf& xParam)
 {
 	CFenrirRepairMsgBox* pMsgBox = dynamic_cast<CFenrirRepairMsgBox*>(pOwner);
-	if (pMsgBox == false)
+	if (pMsgBox == nullptr)
 	{
 		return CALLBACK_CONTINUE;
 	}
@@ -1943,7 +1943,7 @@ CALLBACK_RESULT SEASON3B::CChaosCastleTimeCheckMsgBoxLayout::OkBtnDown(class CNe
 	}
 	else
 	{
-		__asm { int 3 };
+		assert(false);
 	}
 
 	PlayBuffer(SOUND_CLICK01);
@@ -2834,7 +2834,7 @@ bool SEASON3B::CPersonalShopItemValueCheckMsgBoxLayout::SetLayout()
 CALLBACK_RESULT SEASON3B::CPersonalShopItemValueCheckMsgBoxLayout::OkBtnDown(class CNewUIMessageBoxBase* pOwner, const leaf::xstreambuf& xParam)
 {
 	CNewUI3DItemCommonMsgBox* pMsgBox = dynamic_cast<CNewUI3DItemCommonMsgBox*>(pOwner);
-	if (pMsgBox == false)
+	if (pMsgBox == nullptr)
 	{
 		return CALLBACK_CONTINUE;
 	}

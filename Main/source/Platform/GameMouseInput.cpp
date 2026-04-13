@@ -10,6 +10,7 @@
 //   Drag (1 finger)      → mouse move + LButton held
 //   Two-finger pinch     → mouse wheel (zoom camera)
 // ─────────────────────────────────────────────────────────────────────────────
+#include "../stdafx.h"
 #include "GameMouseInput.h"
 #include "AndroidWin32Compat.h"
 #include "../NewUICommon.h"   // SEASON3B::CNewKeyInput + KEY_STATE
@@ -67,8 +68,8 @@ namespace GameMouseInput
     // Bridge: also update SEASON3B::CNewKeyInput so IsPress(VK_LBUTTON) works
     static inline void SetVKey(int vk, SEASON3B::CNewKeyInput::KEY_STATE st)
     {
-        if (SEASON3B::g_pNewKeyInput)
-            SEASON3B::g_pNewKeyInput->SetKeyState(vk, st);
+        if (g_pNewKeyInput)
+            g_pNewKeyInput->SetKeyState(vk, st);
     }
 
     static void FireLButtonDown()
@@ -205,12 +206,12 @@ namespace GameMouseInput
         // After FireLButtonUp/FireRButtonUp we set KEY_RELEASE; clear to KEY_NONE here
         // (KEY_PRESS → KEY_REPEAT is handled by CNewKeyInput::UpdateInput on Windows;
         //  on Android we just clear release state so IsNone() works next frame)
-        if (SEASON3B::g_pNewKeyInput)
+        if (g_pNewKeyInput)
         {
             if (!MouseLButton)
-                SEASON3B::g_pNewKeyInput->SetKeyState(VK_LBUTTON, SEASON3B::CNewKeyInput::KEY_NONE);
+                g_pNewKeyInput->SetKeyState(VK_LBUTTON, SEASON3B::CNewKeyInput::KEY_NONE);
             if (!MouseRButton)
-                SEASON3B::g_pNewKeyInput->SetKeyState(VK_RBUTTON, SEASON3B::CNewKeyInput::KEY_NONE);
+                g_pNewKeyInput->SetKeyState(VK_RBUTTON, SEASON3B::CNewKeyInput::KEY_NONE);
         }
 
         // Clear one-frame flags at the END of each frame

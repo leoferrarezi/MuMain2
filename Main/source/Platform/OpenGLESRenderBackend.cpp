@@ -10,10 +10,23 @@
 
 #include <GLES3/gl3.h>
 #include <android/log.h>
+#ifdef min
+#  undef min
+#endif
+#ifdef max
+#  undef max
+#endif
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/matrix_inverse.hpp>
 #include <glm/gtc/type_ptr.hpp>
+
+#ifndef GL_QUADS
+#  define GL_QUADS 0x0007
+#endif
+#ifndef GL_POLYGON
+#  define GL_POLYGON 0x0009
+#endif
 
 #include <stack>
 #include <vector>

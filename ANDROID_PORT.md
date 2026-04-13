@@ -14,12 +14,12 @@ Atualizar os checkboxes conforme cada item for concluído.
 
 | Fase | Componente | Status |
 |------|-----------|--------|
-| 0 | Build System (Gradle + CMake) | ✅ Completo |
+| 0 | Build System (Gradle + CMake) | 🔄 Em andamento |
 | 1 | Platform Abstraction Layer (PAL) | ✅ Completo |
-| 2 | OpenGL ES 3.0 Render Backend | ✅ Completo |
-| 3 | Input System (Touch → Mouse) | ✅ Completo |
-| 4 | Áudio (OpenSL ES) | ✅ Completo |
-| 5 | Font/Text Rendering (stb_truetype) | ✅ Completo |
+| 2 | OpenGL ES 3.0 Render Backend | 🔄 Em andamento |
+| 3 | Input System (Touch → Mouse) | 🔄 Em andamento |
+| 4 | Áudio (OpenSL ES) | 🔄 Em andamento |
+| 5 | Font/Text Rendering (stb_truetype) | 🔄 Em andamento |
 | 6 | Win32 System Replacements | 🔄 Em andamento |
 | 7 | Game Data Downloader (1ª execução) | 🔄 Em andamento |
 | 8 | Integração & Testes por Cena | ⬜ Pendente |
@@ -81,7 +81,7 @@ Atualizar os checkboxes conforme cada item for concluído.
 - [x] `Platform/RenderBackend.h/cpp` — interface pública (BeginFrame, EndFrame, SwapBuffers)
 - [x] `android/app/src/main/assets/shaders/fixed_vert.glsl` — a_position, a_texcoord, a_color, a_normal + iluminação por vértice
 - [x] `android/app/src/main/assets/shaders/fixed_frag.glsl` — textura + fog + alpha test
-- [ ] `ZzzOpenglUtil.cpp` — verificar includes GLEW/GL: já cobertos via StdAfx.h → GLFixedFunctionStubs.h
+- [x] `ZzzOpenglUtil.cpp` — includes GLEW/GL cobertos via StdAfx.h → GLFixedFunctionStubs.h
 - [ ] Verificar `ZzzBMD.cpp` — adaptar rendering de modelos 3D ao backend
 - [ ] Verificar `ZzzLodTerrain.cpp` — adaptar terrain rendering
 - [ ] Verificar `ZzzEffect*.cpp` — adaptar particle/effect rendering
@@ -120,7 +120,7 @@ Atualizar os checkboxes conforme cada item for concluído.
   - `StopBuffer(index)` → SL_PLAYSTATE_STOPPED
   - `Set3DSoundPosition()` → SL3DLocationItf
   - `SetVolume()` → SLVolumeItf
-- [ ] `DSplaysound.cpp` — `#ifdef _WIN32` em volta de toda implementação DirectSound
+- [x] `DSplaysound.cpp` — `#ifndef __ANDROID__` em volta de toda implementação DirectSound
 
 ---
 
@@ -170,7 +170,7 @@ Atualizar os checkboxes conforme cada item for concluído.
 - [x] `Utilities/Dump/CrashHandler.cpp` / `Uploader.cpp` — `#ifndef __ANDROID__`
 - [x] `ExternalObject/Leaf/ExceptionHandler.cpp` — `#ifndef __ANDROID__`
 - [x] `ExternalObject/Leaf/checkintegrity.cpp` / `peimage.cpp` — `#ifndef __ANDROID__`
-- [x] `DSplaysound.cpp` / `DSwaveIO.h/cpp` — `#ifndef __ANDROID__`
+- [x] `DSwaveIO.h/cpp` — `#ifndef __ANDROID__`
 - [x] `MovieScene` / `dshow.h` — já dentro de `#ifdef MOVIE_DIRECTSHOW`
 - [x] `GCCertification.cpp` / `LauncherHelper.cpp` / `UsefulDef.cpp` — guards adicionados
 - [x] `Util.cpp` — UUID/RPC → Android stub
@@ -179,8 +179,11 @@ Atualizar os checkboxes conforme cada item for concluído.
 - [x] `AndroidWin32Compat.h` — GetCursorPos/ScreenToClient → MouseX/MouseY globals
 - [x] `AndroidWin32Compat.h` — sprintf_s/vsprintf_s/wsprintf → snprintf shims
 - [x] `AndroidWin32Compat.h` — GetSystemInfo/GetVolumeInformation stubs
+- [x] `AndroidWin32Compat.h` — GWL_WNDPROC/GWL_USERDATA, WM_IME_*, IMN_SETOPENSTATUS, GetWindowTextW, GetCaretPos
+- [x] `AndroidWin32Compat.h` — OffsetRect, _vsntprintf, GetKeyState
 - [x] `regkey.h` — Android flat-file backend
 - [x] `GameMouseInput.cpp` — bridge Fire*() → CNewKeyInput::SetKeyState(VK_LBUTTON/RBUTTON)
+- [x] `Main/android/app/src/main/cpp/CMakeLists.txt` — remover `CBTMessageBox.cpp` do build Android
 
 ---
 
@@ -249,4 +252,4 @@ adb logcat -s MUAssets:V           # download e carregamento de assets
 
 ---
 
-*Última atualização: 2026-04-12 — auditoria do checklist + bridge de áudio OpenSL ES ativado + limpeza de referências inválidas no CMake Android*
+*Última atualização: 2026-04-13 — verificação pós-git pull: checklist reconciliado, compat UI/IME consolidada e correções de build Android documentadas*

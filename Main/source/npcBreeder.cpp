@@ -2,7 +2,9 @@
 //  npcBreeder.cpp
 //////////////////////////////////////////////////////////////////////////
 #include "stdafx.h"
+#ifndef __ANDROID__
 #include <process.h>
+#endif
 #include "UIManager.h"
 #include "ZzzOpenglUtil.h"
 #include "ZzzBMD.h"
@@ -116,4 +118,3 @@ namespace npcBreeder
         }
 	}
 }
-

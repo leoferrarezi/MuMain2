@@ -170,6 +170,12 @@
 #ifndef GL_SHADE_MODEL
 #  define GL_SHADE_MODEL    0x0B54
 #endif
+#ifndef GL_LINE_SMOOTH
+#  define GL_LINE_SMOOTH    0x0B20
+#endif
+#ifndef GL_LINE_SMOOTH_HINT
+#  define GL_LINE_SMOOTH_HINT 0x0C52
+#endif
 
 // Raster ops stubs
 #ifndef GL_RASTER_POS

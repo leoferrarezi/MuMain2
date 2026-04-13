@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "UIControlRender.h"
+#include <sstream>
 
 CUIComboBox::CUIComboBox()
 {

@@ -142,7 +142,7 @@ public:
 	void HookComplete();
 	bool ReadMainFile();
 	bool ReadMainConnect(std::string filename, void* pEnvStruct, int Size);
-	bool LoadMainFileInfo(MAIN_FILE_INFO& mainInfo, std::string& filePath);
+	bool LoadMainFileInfo(MAIN_FILE_INFO& mainInfo, const std::string& filePath);
 	bool ReadTextFile(char* name);
 
 	void CheckPluginFile();

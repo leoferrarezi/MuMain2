@@ -7,6 +7,7 @@
 #ifndef __ANDROID__
 #include <windows.h>
 #endif
+#include "WINHANDLE.h"
 
 namespace SEASON3B
 {

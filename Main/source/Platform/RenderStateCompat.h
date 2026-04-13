@@ -8,6 +8,12 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 #include <GLES3/gl3.h>
+#ifdef min
+#  undef min
+#endif
+#ifdef max
+#  undef max
+#endif
 #include <glm/glm.hpp>
 
 // ── Matrix mode (mirrors glMatrixMode tokens) ────────────────────────────────

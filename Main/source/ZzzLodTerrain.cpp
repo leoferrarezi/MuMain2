@@ -4,8 +4,8 @@
 
 #include "stdafx.h"
 #ifndef __ANDROID__
-#include <gl\gl.h>
-#include <gl\glu.h>
+#include <gl/gl.h>
+#include <gl/glu.h>
 #endif
 #include <math.h>
 #include "ZzzOpenglUtil.h"
@@ -126,7 +126,7 @@ inline int TERRAIN_INDEX_REPEAT(int x, int y)
 	return (y & TERRAIN_SIZE_MASK) * TERRAIN_SIZE + (x & TERRAIN_SIZE_MASK);
 }
 
-inline WORD TERRAIN_ATTRIBUTE(float x, float y)
+WORD TERRAIN_ATTRIBUTE(float x, float y)
 {
 	int xf = (int)(x / TERRAIN_SCALE);
 	int yf = (int)(y / TERRAIN_SCALE);

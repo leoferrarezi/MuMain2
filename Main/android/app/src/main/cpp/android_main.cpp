@@ -50,7 +50,7 @@
 
 // External SceneFlag and game loop functions declared in ZzzScene.cpp
 extern int SceneFlag;
-extern void MainScene();
+extern void MainScene(HDC hDC);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // App state
@@ -147,7 +147,7 @@ static void RenderFrame()
     ProtocolCompiler();
 
     // Game logic + rendering — same function as on Windows
-    MainScene();
+    MainScene(nullptr);
 
     g_eglWindow->SwapBuffers();
 }

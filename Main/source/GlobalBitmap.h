@@ -8,8 +8,15 @@
 #include <map>
 #include <deque>
 #include <string>
+#include <list>
+#include <vector>
 #include <setjmp.h>
 #include "./Time/Timer.h"
+#ifdef __ANDROID__
+#include <GLES3/gl3.h>
+#else
+#include <GL/gl.h>
+#endif
 
 #define MAX_BITMAP_FILE_NAME 256
 

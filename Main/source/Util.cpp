@@ -6,6 +6,7 @@
 #include <locale>
 #include <codecvt>
 
+#include <iostream>
 #ifndef __ANDROID__
 #pragma comment(lib,"Rpcrt4.lib")
 #endif

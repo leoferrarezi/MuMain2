@@ -2,7 +2,9 @@
 #ifndef _XORTRANS_H_
 #define _XORTRANS_H_
 
+#ifndef __ANDROID__
 #include <windows.h>
+#endif
 #include "xstreambuf.h"
 
 namespace leaf {

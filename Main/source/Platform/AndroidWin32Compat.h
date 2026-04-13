@@ -23,6 +23,7 @@
 #include <algorithm>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <mutex>
 #include <android/log.h>
 
@@ -82,6 +83,8 @@ typedef TCHAR*              LPTSTR;
 typedef void*               FARPROC;
 typedef DWORD*              LPDWORD;
 typedef BYTE*               LPBYTE;
+typedef BYTE*               PBYTE;
+typedef BOOL*               LPBOOL;
 
 #ifndef IN
 #  define IN
@@ -109,6 +112,12 @@ typedef BYTE*               LPBYTE;
 
 #ifndef _ASSERT
 #  define _ASSERT(expr) assert((expr))
+#endif
+#ifndef RtlSecureZeroMemory
+#  define RtlSecureZeroMemory(dst, len) memset((dst), 0, (len))
+#endif
+#ifndef SecureZeroMemory
+#  define SecureZeroMemory(dst, len) memset((dst), 0, (len))
 #endif
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -167,6 +176,9 @@ typedef unsigned short INTERNET_PORT;
 #ifndef NULL
 #  define NULL  nullptr
 #endif
+#ifndef ERROR_SUCCESS
+#  define ERROR_SUCCESS 0
+#endif
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Numeric limits
@@ -191,6 +203,12 @@ typedef unsigned short INTERNET_PORT;
 #endif
 #ifndef CP_UTF8
 #  define CP_UTF8 65001
+#endif
+#ifndef CP_ACP
+#  define CP_ACP 0
+#endif
+#ifndef _atoi64
+#  define _atoi64 atoll
 #endif
 #define MAXBYTE   0xFF
 #define MAXWORD   0xFFFF
@@ -228,6 +246,18 @@ inline std::mutex& AndroidCompatWindowMutex()
 {
     static std::mutex s_windowMutex;
     return s_windowMutex;
+}
+
+inline std::unordered_set<HANDLE>& AndroidCompatFileHandleSet()
+{
+    static std::unordered_set<HANDLE> s_fileHandles;
+    return s_fileHandles;
+}
+
+inline std::mutex& AndroidCompatFileHandleMutex()
+{
+    static std::mutex s_fileHandleMutex;
+    return s_fileHandleMutex;
 }
 
 inline HWND& AndroidCompatFocusedWindow()
@@ -565,6 +595,36 @@ typedef uintptr_t DWORD_PTR;
 #define SB_LINEDOWN          1
 #define SB_PAGEUP            2
 #define SB_PAGEDOWN          3
+#define SB_VERT              1
+
+#define SWP_NOSIZE           0x0001
+#define SWP_NOMOVE           0x0002
+#define SWP_NOZORDER         0x0004
+#define SWP_NOACTIVATE       0x0010
+#define SWP_SHOWWINDOW       0x0040
+#define SWP_HIDEWINDOW       0x0080
+
+#define HTTP_QUERY_CONTENT_LENGTH 5
+#define HTTP_QUERY_STATUS_CODE    19
+#define HTTP_STATUS_OK            200
+
+typedef struct _FILETIME {
+    DWORD dwLowDateTime;
+    DWORD dwHighDateTime;
+} FILETIME, *PFILETIME, *LPFILETIME;
+
+typedef struct _WIN32_FIND_DATAA {
+    DWORD    dwFileAttributes;
+    FILETIME ftCreationTime;
+    FILETIME ftLastAccessTime;
+    FILETIME ftLastWriteTime;
+    DWORD    nFileSizeHigh;
+    DWORD    nFileSizeLow;
+    DWORD    dwReserved0;
+    DWORD    dwReserved1;
+    char     cFileName[MAX_PATH];
+    char     cAlternateFileName[14];
+} WIN32_FIND_DATAA, *PWIN32_FIND_DATAA, *LPWIN32_FIND_DATAA;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GDI / font stubs
@@ -704,6 +764,334 @@ inline HRESULT StringCchCopyW(wchar_t* dst, size_t cchDst, const wchar_t* src)
 #ifndef StringCchCopy
 #  define StringCchCopy StringCchCopyA
 #endif
+inline size_t AndroidCompatStrnlen(const char* s, size_t maxLen)
+{
+    if (!s) return 0;
+    size_t n = 0;
+    while (n < maxLen && s[n] != '\0') ++n;
+    return n;
+}
+inline size_t AndroidCompatWcsnlen(const wchar_t* s, size_t maxLen)
+{
+    if (!s) return 0;
+    size_t n = 0;
+    while (n < maxLen && s[n] != L'\0') ++n;
+    return n;
+}
+inline HRESULT StringCchLengthA(const char* src, size_t cchMax, size_t* pcch)
+{
+    if (!src || !pcch) return E_INVALIDARG;
+    size_t len = AndroidCompatStrnlen(src, cchMax);
+    *pcch = len;
+    return (len == cchMax && cchMax > 0 && src[cchMax - 1] != '\0') ? E_FAIL : S_OK;
+}
+inline HRESULT StringCchLengthW(const wchar_t* src, size_t cchMax, size_t* pcch)
+{
+    if (!src || !pcch) return E_INVALIDARG;
+    size_t len = AndroidCompatWcsnlen(src, cchMax);
+    *pcch = len;
+    return (len == cchMax && cchMax > 0 && src[cchMax - 1] != L'\0') ? E_FAIL : S_OK;
+}
+inline HRESULT StringCchPrintfA(char* dst, size_t cchDst, const char* fmt, ...)
+{
+    if (!dst || cchDst == 0 || !fmt) return E_INVALIDARG;
+    va_list args;
+    va_start(args, fmt);
+    int rc = vsnprintf(dst, cchDst, fmt, args);
+    va_end(args);
+    dst[cchDst - 1] = '\0';
+    return (rc < 0 || (size_t)rc >= cchDst) ? E_FAIL : S_OK;
+}
+inline HRESULT StringCchPrintfW(wchar_t* dst, size_t cchDst, const wchar_t* fmt, ...)
+{
+    if (!dst || cchDst == 0 || !fmt) return E_INVALIDARG;
+    va_list args;
+    va_start(args, fmt);
+    int rc = vswprintf(dst, cchDst, fmt, args);
+    va_end(args);
+    dst[cchDst - 1] = L'\0';
+    return (rc < 0 || (size_t)rc >= cchDst) ? E_FAIL : S_OK;
+}
+inline HRESULT StringCchVPrintfA(char* dst, size_t cchDst, const char* fmt, va_list args)
+{
+    if (!dst || cchDst == 0 || !fmt) return E_INVALIDARG;
+    int rc = vsnprintf(dst, cchDst, fmt, args);
+    dst[cchDst - 1] = '\0';
+    return (rc < 0 || (size_t)rc >= cchDst) ? E_FAIL : S_OK;
+}
+inline HRESULT StringCchVPrintfW(wchar_t* dst, size_t cchDst, const wchar_t* fmt, va_list args)
+{
+    if (!dst || cchDst == 0 || !fmt) return E_INVALIDARG;
+    int rc = vswprintf(dst, cchDst, fmt, args);
+    dst[cchDst - 1] = L'\0';
+    return (rc < 0 || (size_t)rc >= cchDst) ? E_FAIL : S_OK;
+}
+#ifndef StringCchLength
+#  define StringCchLength StringCchLengthA
+#endif
+#ifndef StringCchPrintf
+#  define StringCchPrintf StringCchPrintfA
+#endif
+#ifndef StringCchVPrintf
+#  define StringCchVPrintf StringCchVPrintfA
+#endif
+
+inline bool AndroidCompatDecodeUtf8Char(const char* s, size_t len, size_t* consumed, uint32_t* codepoint)
+{
+    if (!s || len == 0 || !consumed || !codepoint)
+    {
+        return false;
+    }
+
+    const unsigned char b0 = (unsigned char)s[0];
+    if ((b0 & 0x80u) == 0u)
+    {
+        *consumed = 1;
+        *codepoint = b0;
+        return true;
+    }
+
+    if ((b0 & 0xE0u) == 0xC0u && len >= 2)
+    {
+        const unsigned char b1 = (unsigned char)s[1];
+        if ((b1 & 0xC0u) == 0x80u)
+        {
+            *consumed = 2;
+            *codepoint = ((uint32_t)(b0 & 0x1Fu) << 6) | (uint32_t)(b1 & 0x3Fu);
+            return true;
+        }
+    }
+    else if ((b0 & 0xF0u) == 0xE0u && len >= 3)
+    {
+        const unsigned char b1 = (unsigned char)s[1];
+        const unsigned char b2 = (unsigned char)s[2];
+        if ((b1 & 0xC0u) == 0x80u && (b2 & 0xC0u) == 0x80u)
+        {
+            *consumed = 3;
+            *codepoint = ((uint32_t)(b0 & 0x0Fu) << 12) |
+                         ((uint32_t)(b1 & 0x3Fu) << 6) |
+                         (uint32_t)(b2 & 0x3Fu);
+            return true;
+        }
+    }
+    else if ((b0 & 0xF8u) == 0xF0u && len >= 4)
+    {
+        const unsigned char b1 = (unsigned char)s[1];
+        const unsigned char b2 = (unsigned char)s[2];
+        const unsigned char b3 = (unsigned char)s[3];
+        if ((b1 & 0xC0u) == 0x80u && (b2 & 0xC0u) == 0x80u && (b3 & 0xC0u) == 0x80u)
+        {
+            *consumed = 4;
+            *codepoint = ((uint32_t)(b0 & 0x07u) << 18) |
+                         ((uint32_t)(b1 & 0x3Fu) << 12) |
+                         ((uint32_t)(b2 & 0x3Fu) << 6) |
+                         (uint32_t)(b3 & 0x3Fu);
+            return true;
+        }
+    }
+
+    *consumed = 1;
+    *codepoint = (uint32_t)'?';
+    return false;
+}
+
+inline int AndroidCompatEncodeUtf8Char(uint32_t cp, char out[4])
+{
+    if (!out) return 0;
+    if (cp <= 0x7Fu)
+    {
+        out[0] = (char)cp;
+        return 1;
+    }
+    if (cp <= 0x7FFu)
+    {
+        out[0] = (char)(0xC0u | (cp >> 6));
+        out[1] = (char)(0x80u | (cp & 0x3Fu));
+        return 2;
+    }
+    if (cp <= 0xFFFFu)
+    {
+        out[0] = (char)(0xE0u | (cp >> 12));
+        out[1] = (char)(0x80u | ((cp >> 6) & 0x3Fu));
+        out[2] = (char)(0x80u | (cp & 0x3Fu));
+        return 3;
+    }
+    if (cp <= 0x10FFFFu)
+    {
+        out[0] = (char)(0xF0u | (cp >> 18));
+        out[1] = (char)(0x80u | ((cp >> 12) & 0x3Fu));
+        out[2] = (char)(0x80u | ((cp >> 6) & 0x3Fu));
+        out[3] = (char)(0x80u | (cp & 0x3Fu));
+        return 4;
+    }
+    out[0] = '?';
+    return 1;
+}
+
+inline int MultiByteToWideChar(UINT codePage, DWORD, const char* src, int cbMultiByte, wchar_t* dst, int cchWideChar)
+{
+    if (!src) return 0;
+    if (cbMultiByte == 0) return 0;
+
+    const bool sourceIsNullTerminated = (cbMultiByte < 0);
+    const size_t srcLen = sourceIsNullTerminated ? strlen(src) : (size_t)cbMultiByte;
+    int outCount = 0;
+
+    auto appendWChar = [&](wchar_t wc) -> bool
+    {
+        if (dst)
+        {
+            if (outCount >= cchWideChar)
+            {
+                return false;
+            }
+            dst[outCount] = wc;
+        }
+        ++outCount;
+        return true;
+    };
+
+    if (codePage == CP_UTF8 || codePage == CP_ACP)
+    {
+        size_t i = 0;
+        while (i < srcLen)
+        {
+            size_t consumed = 0;
+            uint32_t cp = 0;
+            AndroidCompatDecodeUtf8Char(src + i, srcLen - i, &consumed, &cp);
+            i += consumed;
+
+#if WCHAR_MAX <= 0xFFFF
+            if (cp > 0xFFFFu)
+            {
+                cp -= 0x10000u;
+                if (!appendWChar((wchar_t)(0xD800u + (cp >> 10)))) return 0;
+                if (!appendWChar((wchar_t)(0xDC00u + (cp & 0x3FFu)))) return 0;
+            }
+            else
+#endif
+            {
+                if (!appendWChar((wchar_t)cp)) return 0;
+            }
+        }
+    }
+    else
+    {
+        for (size_t i = 0; i < srcLen; ++i)
+        {
+            if (!appendWChar((wchar_t)(unsigned char)src[i])) return 0;
+        }
+    }
+
+    if (sourceIsNullTerminated)
+    {
+        if (!appendWChar(L'\0')) return 0;
+    }
+
+    return outCount;
+}
+
+inline int WideCharToMultiByte(UINT codePage, DWORD, const wchar_t* src, int cchWideChar, char* dst, int cbMultiByte, const char*, BOOL* lpUsedDefaultChar)
+{
+    if (!src) return 0;
+    if (cchWideChar == 0) return 0;
+
+    if (lpUsedDefaultChar) *lpUsedDefaultChar = FALSE;
+
+    const bool sourceIsNullTerminated = (cchWideChar < 0);
+    const size_t srcLen = sourceIsNullTerminated ? wcslen(src) : (size_t)cchWideChar;
+    int outCount = 0;
+
+    auto appendByte = [&](char ch) -> bool
+    {
+        if (dst)
+        {
+            if (outCount >= cbMultiByte)
+            {
+                return false;
+            }
+            dst[outCount] = ch;
+        }
+        ++outCount;
+        return true;
+    };
+
+    if (codePage == CP_UTF8 || codePage == CP_ACP)
+    {
+        size_t i = 0;
+        while (i < srcLen)
+        {
+            uint32_t cp = (uint32_t)src[i++];
+#if WCHAR_MAX <= 0xFFFF
+            if (cp >= 0xD800u && cp <= 0xDBFFu && i < srcLen)
+            {
+                const uint32_t low = (uint32_t)src[i];
+                if (low >= 0xDC00u && low <= 0xDFFFu)
+                {
+                    ++i;
+                    cp = 0x10000u + (((cp - 0xD800u) << 10) | (low - 0xDC00u));
+                }
+            }
+#endif
+            char utf8[4];
+            int utf8Len = AndroidCompatEncodeUtf8Char(cp, utf8);
+            for (int n = 0; n < utf8Len; ++n)
+            {
+                if (!appendByte(utf8[n])) return 0;
+            }
+        }
+    }
+    else
+    {
+        for (size_t i = 0; i < srcLen; ++i)
+        {
+            wchar_t wc = src[i];
+            char ch = (wc >= 0 && wc <= 0xFF) ? (char)wc : '?';
+            if (wc < 0 || wc > 0xFF)
+            {
+                if (lpUsedDefaultChar) *lpUsedDefaultChar = TRUE;
+            }
+            if (!appendByte(ch)) return 0;
+        }
+    }
+
+    if (sourceIsNullTerminated)
+    {
+        if (!appendByte('\0')) return 0;
+    }
+
+    return outCount;
+}
+
+#ifndef _tcschr
+#  define _tcschr strchr
+#endif
+#ifndef _tcsrchr
+#  define _tcsrchr strrchr
+#endif
+#ifndef _tcsstr
+#  define _tcsstr strstr
+#endif
+#ifndef _tcsncpy
+#  define _tcsncpy strncpy
+#endif
+#ifndef _tcslwr
+inline char* _tcslwr(char* s)
+{
+    if (!s) return s;
+    for (char* p = s; *p; ++p)
+    {
+        *p = (char)tolower((unsigned char)*p);
+    }
+    return s;
+}
+#endif
+#ifndef _tcscat_s
+#  define _tcscat_s(dst, sz, src) strcat_s((dst), (sz), (src))
+#endif
+#ifndef _tcsncpy_s
+#  define _tcsncpy_s(dst, sz, src, cnt) strncpy_s((dst), (sz), (src), (cnt))
+#endif
 inline char* _strupr(char* s)
 {
     if (!s) return s;
@@ -838,6 +1226,55 @@ inline DWORD GetCurrentDirectory(DWORD nBufferLength, char* lpBuffer)
     return GetCurrentDirectoryA(nBufferLength, lpBuffer);
 }
 
+inline DWORD GetModuleFileNameA(HMODULE /*hModule*/, char* lpFilename, DWORD nSize)
+{
+    if (!lpFilename || nSize == 0)
+    {
+        return 0;
+    }
+
+    const ssize_t pathLen = readlink("/proc/self/exe", lpFilename, nSize - 1);
+    if (pathLen < 0)
+    {
+        lpFilename[0] = '\0';
+        return 0;
+    }
+
+    lpFilename[pathLen] = '\0';
+    return (DWORD)pathLen;
+}
+
+inline DWORD GetModuleFileNameW(HMODULE hModule, wchar_t* lpFilename, DWORD nSize)
+{
+    if (!lpFilename || nSize == 0)
+    {
+        return 0;
+    }
+
+    char path[PATH_MAX > 0 ? PATH_MAX : 4096];
+    const DWORD pathLen = GetModuleFileNameA(hModule, path, (DWORD)sizeof(path));
+    if (pathLen == 0)
+    {
+        lpFilename[0] = L'\0';
+        return 0;
+    }
+
+    const size_t wideLen = mbstowcs(lpFilename, path, nSize - 1);
+    if (wideLen == (size_t)-1)
+    {
+        lpFilename[0] = L'\0';
+        return 0;
+    }
+
+    lpFilename[wideLen] = L'\0';
+    return (DWORD)wideLen;
+}
+
+inline DWORD GetModuleFileName(HMODULE hModule, char* lpFilename, DWORD nSize)
+{
+    return GetModuleFileNameA(hModule, lpFilename, nSize);
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Debug output → Android log
 // ─────────────────────────────────────────────────────────────────────────────
@@ -951,6 +1388,25 @@ inline BOOL ShowWindow(HWND hWnd, int nCmdShow)
     }
     return TRUE;
 }
+inline BOOL SetWindowPos(HWND hWnd, HWND, int, int, int, int, UINT uFlags)
+{
+    std::lock_guard<std::mutex> lock(AndroidCompatWindowMutex());
+    AndroidCompatWindowState* state = AndroidCompatGetWindowState(hWnd);
+    if (!state)
+    {
+        return FALSE;
+    }
+
+    if (uFlags & SWP_SHOWWINDOW)
+    {
+        state->visible = true;
+    }
+    if (uFlags & SWP_HIDEWINDOW)
+    {
+        state->visible = false;
+    }
+    return TRUE;
+}
 inline BOOL UpdateWindow(HWND)                       { return TRUE; }
 inline BOOL DestroyWindow(HWND hWnd)
 {
@@ -991,6 +1447,14 @@ inline BOOL IsWindow(HWND h)
     std::lock_guard<std::mutex> lock(AndroidCompatWindowMutex());
     return AndroidCompatWindowMap().find(h) != AndroidCompatWindowMap().end() ? TRUE : FALSE;
 }
+inline BOOL IsWindowVisible(HWND hWnd)
+{
+    std::lock_guard<std::mutex> lock(AndroidCompatWindowMutex());
+    AndroidCompatWindowState* state = AndroidCompatGetWindowState(hWnd);
+    return (state && state->visible) ? TRUE : FALSE;
+}
+inline int GetScrollPos(HWND, int) { return 0; }
+inline int SetScrollPos(HWND, int, int nPos, BOOL) { return nPos; }
 inline BOOL IsBadReadPtr(const void* p, UINT_PTR)   { return p == nullptr; }
 inline SHORT GetKeyState(int) { return 0; }
 
@@ -1154,11 +1618,13 @@ inline int  MessageBox(HWND h, const char* t, const char* c, UINT f) { return Me
 #define MB_OK        0
 #define MB_YESNO     4
 #define MB_ICONERROR 0x10
+#define MB_ICONWARNING 0x30
 #define MB_ICONINFO  0x40
 #define IDOK         1
 #define IDYES        6
 #define IDNO         7
 #define SW_SHOW      5
+#define SW_NORMAL    1
 #define SW_HIDE      0
 #define ERROR_ALREADY_EXISTS 183
 #ifndef MCI_SEQ_MAPPER
@@ -1179,6 +1645,7 @@ inline int  MessageBox(HWND h, const char* t, const char* c, UINT f) { return Me
 #define IME_CMODE_ALPHANUMERIC 0x0000
 #define IME_SMODE_NONE   0x0000
 #define IME_SMODE_AUTOMATIC 0x0008
+#define GCS_COMPSTR       0x0008
 
 typedef struct tagCOMPOSITIONFORM {
     DWORD dwStyle;
@@ -1210,6 +1677,14 @@ inline BOOL ImmGetConversionStatus(HIMC, DWORD* lpfdwConversion, DWORD* lpfdwSen
     return TRUE;
 }
 inline BOOL ImmSetConversionStatus(HIMC, DWORD, DWORD) { return TRUE; }
+inline LONG ImmGetCompositionString(HIMC, DWORD, LPVOID lpBuf, DWORD dwBufLen)
+{
+    if (lpBuf && dwBufLen > 0)
+    {
+        ((char*)lpBuf)[0] = '\0';
+    }
+    return 0;
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GDI object stubs
@@ -1462,6 +1937,9 @@ inline int _muVsntprintf(char* buffer, size_t sizeOfBuffer, size_t count, const 
 #ifndef wsprintf
 #  define wsprintf(buf, fmt, ...) snprintf((buf), 4096, (fmt), ##__VA_ARGS__)
 #endif
+#ifndef wvsprintf
+#  define wvsprintf(buf, fmt, args) vsprintf((buf), (fmt), (args))
+#endif
 // _vsnprintf_s → vsnprintf
 #ifndef _vsnprintf_s
 #  define _vsnprintf_s(...) _muVsnprintfS(__VA_ARGS__)
@@ -1588,6 +2066,7 @@ inline void _tzset() { tzset(); }
 #define FILE_ATTRIBUTE_DIRECTORY  0x10
 #define FILE_ATTRIBUTE_ARCHIVE    0x20
 #define FILE_ATTRIBUTE_NORMAL     0x80
+#define INVALID_FILE_ATTRIBUTES   0xFFFFFFFF
 
 // SetFilePointer origins (map to SEEK_ values)
 #define FILE_BEGIN   SEEK_SET
@@ -1620,7 +2099,12 @@ static inline HANDLE CreateFileA(
         }
         if (!f) return INVALID_HANDLE_VALUE;
     }
-    return (HANDLE)f;
+    HANDLE h = (HANDLE)f;
+    {
+        std::lock_guard<std::mutex> lock(AndroidCompatFileHandleMutex());
+        AndroidCompatFileHandleSet().insert(h);
+    }
+    return h;
 }
 #define CreateFile  CreateFileA
 #define CreateFileW CreateFileA  // wide-char version — not used in this codebase
@@ -1643,7 +2127,21 @@ static inline BOOL WriteFile(HANDLE h, const void* buf, DWORD n, DWORD* nWritten
 
 static inline BOOL CloseHandle(HANDLE h)
 {
-    if (h && h != INVALID_HANDLE_VALUE) fclose((FILE*)h);
+    if (!h || h == INVALID_HANDLE_VALUE)
+    {
+        return TRUE;
+    }
+
+    {
+        std::lock_guard<std::mutex> lock(AndroidCompatFileHandleMutex());
+        auto& fileHandles = AndroidCompatFileHandleSet();
+        auto it = fileHandles.find(h);
+        if (it != fileHandles.end())
+        {
+            fclose((FILE*)h);
+            fileHandles.erase(it);
+        }
+    }
     return TRUE;
 }
 
@@ -1678,6 +2176,83 @@ static inline DWORD GetFileAttributes(const char* path)
     if (stat(path, &st) != 0) return 0xFFFFFFFF; // INVALID_FILE_ATTRIBUTES
     if (S_ISDIR(st.st_mode)) return FILE_ATTRIBUTE_DIRECTORY;
     return FILE_ATTRIBUTE_NORMAL;
+}
+
+// WinINet API stubs used by the legacy in-game shop downloader.
+// On Android we keep them as no-op success paths to preserve flow.
+static inline HINTERNET InternetOpen(const char*, DWORD, const char*, const char*, DWORD)
+{
+    return (HINTERNET)1;
+}
+
+static inline HINTERNET InternetConnectA(HINTERNET, const char*, INTERNET_PORT, const char*,
+                                         const char*, DWORD, DWORD, DWORD_PTR)
+{
+    return (HINTERNET)1;
+}
+
+static inline HINTERNET FtpFindFirstFileA(HINTERNET, const char*, WIN32_FIND_DATAA* findData, DWORD, DWORD_PTR)
+{
+    if (findData)
+    {
+        memset(findData, 0, sizeof(*findData));
+    }
+    return (HINTERNET)1;
+}
+
+static inline HINTERNET FtpOpenFileA(HINTERNET, const char*, DWORD, DWORD, DWORD_PTR)
+{
+    return (HINTERNET)1;
+}
+
+static inline HINTERNET HttpOpenRequest(HINTERNET, const char*, const char*, const char*, const char*,
+                                        const char* const*, DWORD, DWORD_PTR)
+{
+    return (HINTERNET)1;
+}
+
+static inline BOOL HttpSendRequest(HINTERNET, const char*, DWORD, LPVOID, DWORD)
+{
+    return TRUE;
+}
+
+static inline BOOL HttpQueryInfo(HINTERNET, DWORD infoLevel, LPVOID buffer, LPDWORD bufferLength, LPDWORD)
+{
+    if (!buffer || !bufferLength || *bufferLength == 0)
+    {
+        return FALSE;
+    }
+
+    char* out = (char*)buffer;
+    const char* value = "0";
+    if (infoLevel == HTTP_QUERY_STATUS_CODE)
+    {
+        value = "200";
+    }
+    else if (infoLevel == HTTP_QUERY_CONTENT_LENGTH)
+    {
+        value = "0";
+    }
+
+    snprintf(out, *bufferLength, "%s", value);
+    return TRUE;
+}
+
+static inline BOOL InternetQueryDataAvailable(HINTERNET, LPDWORD available, DWORD, DWORD_PTR)
+{
+    if (available) *available = 0;
+    return TRUE;
+}
+
+static inline BOOL InternetReadFile(HINTERNET, LPVOID, DWORD, LPDWORD bytesRead)
+{
+    if (bytesRead) *bytesRead = 0;
+    return TRUE;
+}
+
+static inline BOOL InternetCloseHandle(HINTERNET)
+{
+    return TRUE;
 }
 
 // WaitForSingleObject on file handles is a no-op (threads use std::thread)
@@ -1800,3 +2375,7 @@ inline BOOL WritePrivateProfileString(
     // TODO: implement write-back if config persistence is needed
     return TRUE; // no-op
 }
+
+#define GetPrivateProfileIntA      GetPrivateProfileInt
+#define GetPrivateProfileStringA   GetPrivateProfileString
+#define WritePrivateProfileStringA WritePrivateProfileString

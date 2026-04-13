@@ -1,3 +1,0 @@
-D:/Projetos/MuCrossEngine/MuMain/Main/android/app/.cxx/Debug/4w1s1t4w/arm64-v8a/CMakeFiles/mucrossengine.dir
-D:/Projetos/MuCrossEngine/MuMain/Main/android/app/.cxx/Debug/4w1s1t4w/arm64-v8a/CMakeFiles/edit_cache.dir
-D:/Projetos/MuCrossEngine/MuMain/Main/android/app/.cxx/Debug/4w1s1t4w/arm64-v8a/CMakeFiles/rebuild_cache.dir

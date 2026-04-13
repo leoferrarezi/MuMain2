@@ -6,6 +6,7 @@
 // We provide the minimal interface that the rest of the code references.
 // ─────────────────────────────────────────────────────────────────────────────
 #include "Platform/AndroidWin32Compat.h"
+#include "Platform/LegacyClientRuntime.h"
 typedef bool          mu_boolean;
 typedef signed char   mu_int8;
 typedef signed short  mu_int16;
@@ -31,15 +32,18 @@ public:
     void Check_State()            {}
     void Change_State(mu_boolean) {}
     void Resize(mu_uint32, mu_uint32) {}
-    mu_float GetScreenX();
-    mu_float GetScreenY();
+    void SetFontSize(mu_uint32)   {}
+    HINSTANCE GetInstance()       { return nullptr; }
+    mu_float GetScreenX() { return static_cast<mu_float>(WindowSizeX); }
+    mu_float GetScreenY() { return static_cast<mu_float>(WindowSizeY); }
     ResolutionConfig* LoadCurrentConfig() { return nullptr; }
     void SetDisplayIndex(mu_uint8, mu_boolean = true) {}
     mu_uint8 GetDisplayIndex()    { return 0; }
+    mu_uint8 GetDisplayIndex(const std::string&) { return 0; }
     void SendWindowMessage(const char*, bool, ...) {}
     void SendNowMessage(UINT, WPARAM, LPARAM)  {}
     void SendPostMessage(UINT, WPARAM, LPARAM) {}
-    HWND GethWnd();
+    HWND GethWnd() { return reinterpret_cast<HWND>(1); }
 };
 extern int   g_iInactiveWarning;
 extern BOOL  g_bMinimizedEnabled;

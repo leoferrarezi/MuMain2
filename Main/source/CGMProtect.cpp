@@ -9,10 +9,12 @@
 #include "CGMJewelOfAction.h"
 #include "CGMPhysicsManager.h"
 #include "CGMRenderGroupMesh.h"
-#include "..\\..\\..\\Util\\CCRC32.H"
+#include "../../Util/CCRC32.H"
 
+#ifndef __ANDROID__
 #include <tlhelp32.h>
 #include <intrin.h>
+#endif
 
 
 
@@ -21,7 +23,9 @@ extern BYTE Serial[SIZE_PROTOCOLSERIAL + 1];
 
 CGMProtect::CGMProtect()
 {
+#ifdef MAX_INSTANCE_GAME
 	m_hMutex = NULL;
+#endif
 	memset(&m_Kernel, 0, sizeof(m_Kernel));
 	memset(&m_MainInfo, 0, sizeof(m_MainInfo));
 }
@@ -42,10 +46,12 @@ WORD CGMProtect::sin_port()
 	return m_Kernel.sin_port;
 }
 
+#ifdef MAX_INSTANCE_GAME
 WORD CGMProtect::GetMaxOfInstance()
 {
 	return m_MainInfo.m_MaxInstance;
 }
+#endif
 
 char* CGMProtect::GetWindowName()
 {
@@ -203,7 +209,7 @@ bool CGMProtect::ReadMainConnect(std::string filename, void* pEnvStruct, int Siz
 	return success;
 }
 
-bool CGMProtect::LoadMainFileInfo(MAIN_FILE_INFO& mainInfo, std::string& filePath)
+bool CGMProtect::LoadMainFileInfo(MAIN_FILE_INFO& mainInfo, const std::string& filePath)
 {
 	bool Success = true;
 
@@ -721,7 +727,7 @@ void CGMProtect::runtime_open_module_crc32(std::string FileName, DWORD _crc32)
 
 	CCRC32 CRC32;
 
-	DWORD PluginCRC32;
+	unsigned long PluginCRC32 = 0;
 
 	if (CRC32.FileCRC(FileName.c_str(), &PluginCRC32, 1024) == 0)
 	{
@@ -792,7 +798,7 @@ void CGMProtect::runtime_checked_crc32()
 {
 	CCRC32 CRC32;
 
-	DWORD PluginCRC32;
+	unsigned long PluginCRC32 = 0;
 
 	for (MODULE_RAM_LIBRARYE Library : m_hLibrary)
 	{

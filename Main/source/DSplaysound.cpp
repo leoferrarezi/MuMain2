@@ -587,4 +587,3 @@ void Set3DSoundPosition()
 }
 
 #endif // !__ANDROID__
-}

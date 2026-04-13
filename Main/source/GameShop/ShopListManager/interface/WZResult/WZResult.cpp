@@ -11,8 +11,10 @@
 #include "stdafx.h"  
 #ifdef KJH_ADD_INGAMESHOP_UI_SYSTEM
 #include "WZResult.h"
+#ifndef __ANDROID__
 #include <crtdbg.h>
 #include <strsafe.h>
+#endif
 
 WZResult::WZResult() // OK
 {

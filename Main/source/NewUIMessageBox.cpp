@@ -338,7 +338,7 @@ bool SEASON3B::CNewUIMessageBoxMng::Update()
 				}
 				if(CALLBACK_EXCEPTION == Result)
 				{
-					__asm { int 3 };
+					assert(false);
 				}
 				if(CALLBACK_POP_ALL_EVENTS == Result)
 				{

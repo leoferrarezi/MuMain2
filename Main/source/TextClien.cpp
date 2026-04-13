@@ -2,7 +2,9 @@
 #include "TextClien.h"
 #include "Util.h"
 #include <stdlib.h>
+#ifndef __ANDROID__
 #include "windows.h"
+#endif
 //#include "atlstr.h"
 #include "Interface.h"
 #include "stdio.h"

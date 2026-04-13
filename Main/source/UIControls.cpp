@@ -4206,7 +4206,7 @@ void CUITextInputBox::SetFont(HFONT hFont)
 	if (m_hEditWnd == NULL || hFont == NULL)
 		return;
 
-	SendMessageW(m_hEditWnd, WM_SETFONT, (UINT)hFont, FALSE);
+	SendMessageW(m_hEditWnd, WM_SETFONT, (WPARAM)hFont, FALSE);
 	SelectObject(m_hMemDC, hFont);
 }
 

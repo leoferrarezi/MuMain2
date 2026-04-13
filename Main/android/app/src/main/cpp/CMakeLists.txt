@@ -90,8 +90,21 @@ set(PLATFORM_SOURCES
     ${PLATFORM_DIR}/GamePacketCryptoBootstrap.cpp
     ${PLATFORM_DIR}/LegacyAndroidClientStubs.cpp
     ${PLATFORM_DIR}/LegacyClientRuntime.cpp
+    ${PLATFORM_DIR}/LauncherHelperAndroid.cpp
     ${PLATFORM_DIR}/OpenGLESRenderBackend.cpp
     ${PLATFORM_DIR}/RenderBackend.cpp
+    ${PLATFORM_DIR}/SimpleModulusStub.cpp
+    ${PLATFORM_DIR}/MuCryptoStub.cpp
+    ${PLATFORM_DIR}/LegacyGlobalsAndroid.cpp
+    ${PLATFORM_DIR}/ImGuiBackendStub.cpp
+    ${PLATFORM_DIR}/TurboJpegStub.cpp
+    ${PLATFORM_DIR}/LegacyBootstrapStubs.cpp
+    ${PLATFORM_DIR}/CGMFontLayerStub.cpp
+    ${PLATFORM_DIR}/CCRC32Adapter.cpp
+    ${DEP_DIR}/ImGui/imgui.cpp
+    ${DEP_DIR}/ImGui/imgui_draw.cpp
+    ${DEP_DIR}/ImGui/imgui_tables.cpp
+    ${DEP_DIR}/ImGui/imgui_widgets.cpp
 )
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -217,7 +230,6 @@ set(GAME_SOURCES
     ${SOURCE_DIR}/ServerGroup.cpp
     ${SOURCE_DIR}/ServerInfo.cpp
     ${SOURCE_DIR}/ServerListManager.cpp
-    ${SOURCE_DIR}/MuCrypto/MuCrypto.cpp
     ${SOURCE_DIR}/KeyGenerater.cpp
     ${SOURCE_DIR}/ProtectSysKey.cpp
     ${SOURCE_DIR}/steady_clock.cpp
@@ -240,6 +252,7 @@ set(GAME_SOURCES
 
     # ── UI — legacy ──────────────────────────────────────────────────────────
     ${SOURCE_DIR}/UIMng.cpp
+    ${SOURCE_DIR}/Input.cpp
     ${SOURCE_DIR}/UIManager.cpp
     ${SOURCE_DIR}/UIWindows.cpp
     ${SOURCE_DIR}/UIControls.cpp
@@ -430,6 +443,7 @@ set(GAME_SOURCES
     ${SOURCE_DIR}/w_BuffStateSystem.cpp
     ${SOURCE_DIR}/w_BuffStateValueControl.cpp
     ${SOURCE_DIR}/w_BuffTimeControl.cpp
+    ${SOURCE_DIR}/_GlobalFunctions.cpp
 
     # ── Character info / world objects ───────────────────────────────────────
     ${SOURCE_DIR}/w_CharacterInfo.cpp
@@ -442,7 +456,6 @@ set(GAME_SOURCES
     ${SOURCE_DIR}/SkillManager.cpp
     ${SOURCE_DIR}/SummonSystem.cpp
     ${SOURCE_DIR}/MonkSystem.cpp
-    ${SOURCE_DIR}/CGMScriptLua.cpp
 
     # ── Sound ────────────────────────────────────────────────────────────────
     ${SOURCE_DIR}/DSplaysound.cpp
@@ -467,7 +480,6 @@ set(GAME_SOURCES
     ${SOURCE_DIR}/Local.cpp
 
     # ── Font / Text ──────────────────────────────────────────────────────────
-    ${SOURCE_DIR}/CGMFontLayer.cpp
     ${SOURCE_DIR}/CGMFrame.cpp
     ${SOURCE_DIR}/CGMHeadChat.cpp
 
@@ -478,7 +490,6 @@ set(GAME_SOURCES
     ${SOURCE_DIR}/MoveCommandData.cpp
     ${SOURCE_DIR}/MovereqInfo.cpp
     ${SOURCE_DIR}/CSResourceManager.cpp
-    ${SOURCE_DIR}/LauncherHelper.cpp
     ${SOURCE_DIR}/jpexs.cpp
     ${SOURCE_DIR}/supportingfeature.cpp
     ${SOURCE_DIR}/GlobalBitmap.cpp
@@ -497,10 +508,6 @@ set(GAME_SOURCES
     ${SOURCE_DIR}/Utilities/Log/muConsoleDebug.cpp
     ${SOURCE_DIR}/Utilities/Log/WindowsConsole.cpp
     ${SOURCE_DIR}/Utilities/Memory/MemoryLock.cpp
-    ${SOURCE_DIR}/Utilities/Dump/Logger.cpp
-    ${SOURCE_DIR}/Utilities/Dump/CrashReporter.cpp
-    ${SOURCE_DIR}/Utilities/Dump/CrashHandler.cpp
-    ${SOURCE_DIR}/Utilities/Dump/Uploader.cpp
 
     # ── Leaf (exception/crash Windows-only modules excluded on Android) ───────
     ${SOURCE_DIR}/ExternalObject/Leaf/xortrans.cpp

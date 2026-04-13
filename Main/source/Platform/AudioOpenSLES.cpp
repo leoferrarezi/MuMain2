@@ -75,7 +75,9 @@ static void EnsureLegacyBufferMap()
 
 static int ClampPercent(int volume)
 {
-    return std::max(0, std::min(100, volume));
+    if (volume < 0) return 0;
+    if (volume > 100) return 100;
+    return volume;
 }
 
 static int DSoundVolumeToPercent(long volume)

@@ -10,12 +10,14 @@
 
 #include "stdafx.h"
 #ifdef KJH_ADD_INGAMESHOP_UI_SYSTEM
-#include "GameShop\ShopListManager\interface\FileDownloader.h"
+#include "GameShop/ShopListManager/interface/FileDownloader.h"
 #include "HTTPConnecter.h"
 #include "FTPConnecter.h"
-#include <GameShop\ShopListManager\interface\PathMethod\\Path.h>
+#include "GameShop/ShopListManager/interface/PathMethod/Path.h"
 
+#ifndef __ANDROID__
 #include <process.h>
+#endif
 
 FileDownloader::FileDownloader(IDownloaderStateEvent* pStateEvent,
                                DownloadServerInfo* pServerInfo,

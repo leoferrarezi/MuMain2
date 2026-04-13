@@ -22,7 +22,7 @@ void DebugAngel_Write( char *lpszFileName, ...)
 	va_list va;
 	va_start( va, lpszFileName);
 	char *lpszFormat = va_arg( va, char*);
-	wvsprintf( lpszBuffer, lpszFormat, va);
+	vsprintf( lpszBuffer, lpszFormat, va);
 	WriteDebugInfoStr( lpszFileName, lpszBuffer);
 	va_end( va);
 }

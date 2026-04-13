@@ -1,6 +1,12 @@
 #pragma once
 
 #ifdef SHADER_VERSION_TEST
+#ifdef min
+#  undef min
+#endif
+#ifdef max
+#  undef max
+#endif
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp> // Necesario para glm::value_ptr

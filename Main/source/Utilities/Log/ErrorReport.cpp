@@ -13,9 +13,13 @@
 #include <dmusicc.h>
 #include <windows.h>
 #include <eh.h>
-#endif
 #include <imagehlp.h>
+#endif
 #include "ErrorReport.h"
+
+#ifdef __ANDROID__
+CErrorReport g_ErrorReport;
+#endif
 
 void DeleteSocket();
 
@@ -257,6 +261,8 @@ void CErrorReport::WriteOpenGLInfo(void)
 	glGetIntegerv(GL_MAX_VIEWPORT_DIMS, iResult);
 	Write("Max Viewport size\t: %d x %d\r\n", iResult[0], iResult[1]);
 }
+
+#ifndef __ANDROID__
 
 void CErrorReport::WriteImeInfo(HWND hWnd)
 {
@@ -998,3 +1004,33 @@ void GetSystemInfo(ER_SystemInfo* si)
 
 #endif // !__ANDROID__ (DirectDraw/DirectInput section)
 
+#else
+
+void CErrorReport::WriteImeInfo(HWND hWnd)
+{
+	(void)hWnd;
+	Write("<IME information>\r\n");
+	Write("IME information is not available on Android.\r\n");
+}
+
+void CErrorReport::WriteSoundCardInfo(void)
+{
+	Write("<Sound card information>\r\n");
+	Write("Sound card information is not available on Android.\r\n");
+	AddSeparator();
+}
+
+void GetSystemInfo(ER_SystemInfo* si)
+{
+	if (si == nullptr)
+	{
+		return;
+	}
+
+	ZeroMemory(si, sizeof(ER_SystemInfo));
+	strcpy(si->m_lpszCPU, "Unknown");
+	strcpy(si->m_lpszOS, "Android");
+	strcpy(si->m_lpszDxVersion, "OpenGL ES");
+}
+
+#endif // __ANDROID__

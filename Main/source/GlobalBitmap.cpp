@@ -3,9 +3,15 @@
 //////////////////////////////////////////////////////////////////////
 
 #include "stdafx.h"
-#include <turbojpeg.h>
+#include <turbojpeg/turbojpeg.h>
 #define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
+#include <turbojpeg/stb_image.h>
+#ifdef min
+#undef min
+#endif
+#ifdef max
+#undef max
+#endif
 #include <gli/gli.hpp>
 
 #include "GlobalBitmap.h"
@@ -646,7 +652,7 @@ bool CGlobalBitmap::OpenJpeg(GLuint uiBitmapIndex, const std::string& filename, 
 	pNewBitmap->output_height = jpegheight;
 	pNewBitmap->Components = channels_in_file;
 	pNewBitmap->Ref = 1;
-	filename._Copy_s(pNewBitmap->FileName, MAX_BITMAP_FILE_NAME, MAX_BITMAP_FILE_NAME);
+	std::snprintf(pNewBitmap->FileName, MAX_BITMAP_FILE_NAME, "%s", filename.c_str());
 
 	size_t textureBufferSize = textureWidth * textureHeight * pNewBitmap->Components;
 
@@ -748,7 +754,7 @@ bool CGlobalBitmap::OpenTga(GLuint uiBitmapIndex, const std::string& filename, G
 	pNewBitmap->output_height = tgaheight;
 	pNewBitmap->Components = channels_in_file;
 	pNewBitmap->Ref = 1;
-	filename._Copy_s(pNewBitmap->FileName, MAX_BITMAP_FILE_NAME, MAX_BITMAP_FILE_NAME);
+	std::snprintf(pNewBitmap->FileName, MAX_BITMAP_FILE_NAME, "%s", filename.c_str());
 
 
 	size_t textureBufferSize = textureWidth * textureHeight * pNewBitmap->Components;
@@ -855,7 +861,7 @@ void CGlobalBitmap::CreateMipmappedTexture(GLuint* TextureNumber, GLuint Compone
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, uiWrapMode);
 
-#ifdef ANISOTROPY_FUNCTIONAL
+#if defined(ANISOTROPY_FUNCTIONAL) && !defined(__ANDROID__)
 	if (GLEW_EXT_texture_filter_anisotropic && !GMProtect->IsWindows11())
 	{
 		GLfloat maxAnisotropy = 0.0;
@@ -867,7 +873,7 @@ void CGlobalBitmap::CreateMipmappedTexture(GLuint* TextureNumber, GLuint Compone
 			glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, maxAnisotropy);
 		}
 	}
-#endif // ANISOTROPY_FUNCTIONAL
+#endif // ANISOTROPY_FUNCTIONAL && !__ANDROID__
 
 	glBindTexture(GL_TEXTURE_2D, 0);
 }
