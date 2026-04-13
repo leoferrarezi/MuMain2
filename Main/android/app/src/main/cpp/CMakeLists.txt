@@ -256,7 +256,6 @@ set(GAME_SOURCES
     ${SOURCE_DIR}/GaugeBar.cpp
     ${SOURCE_DIR}/CBDrawInterface.cpp
     ${SOURCE_DIR}/CBInterface.cpp
-    ${SOURCE_DIR}/CBTMessageBox.cpp
 
     # ── UI — new system ──────────────────────────────────────────────────────
     ${SOURCE_DIR}/NewUIManager.cpp

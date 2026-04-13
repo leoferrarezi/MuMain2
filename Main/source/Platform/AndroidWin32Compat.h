@@ -20,6 +20,10 @@
 #include <limits.h>
 #include <assert.h>
 #include <ctype.h>
+#include <algorithm>
+#include <string>
+#include <unordered_map>
+#include <mutex>
 #include <android/log.h>
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -203,6 +207,76 @@ typedef struct tagPOINT { LONG x, y; } POINT, *PPOINT, *LPPOINT;
 typedef struct tagSIZE  { LONG cx, cy; } SIZE, *PSIZE, *LPSIZE;
 typedef LRESULT (*WNDPROC)(HWND, UINT, WPARAM, LPARAM);
 
+struct AndroidCompatWindowState
+{
+    std::wstring className;
+    std::wstring text;
+    LONG_PTR wndProc;
+    LONG_PTR userData;
+    DWORD style;
+    UINT textLimit;
+    bool visible;
+};
+
+inline std::unordered_map<HWND, AndroidCompatWindowState>& AndroidCompatWindowMap()
+{
+    static std::unordered_map<HWND, AndroidCompatWindowState> s_windowMap;
+    return s_windowMap;
+}
+
+inline std::mutex& AndroidCompatWindowMutex()
+{
+    static std::mutex s_windowMutex;
+    return s_windowMutex;
+}
+
+inline HWND& AndroidCompatFocusedWindow()
+{
+    static HWND s_focusedWindow = nullptr;
+    return s_focusedWindow;
+}
+
+inline AndroidCompatWindowState* AndroidCompatGetWindowState(HWND hWnd)
+{
+    if (!hWnd)
+    {
+        return nullptr;
+    }
+
+    auto& windowMap = AndroidCompatWindowMap();
+    auto it = windowMap.find(hWnd);
+    if (it == windowMap.end())
+    {
+        return nullptr;
+    }
+
+    return &it->second;
+}
+
+inline int AndroidCompatCountLines(const std::wstring& text)
+{
+    if (text.empty())
+    {
+        return 1;
+    }
+
+    int lineCount = 1;
+    for (wchar_t ch : text)
+    {
+        if (ch == L'\n')
+        {
+            ++lineCount;
+        }
+    }
+
+    return lineCount;
+}
+
+inline size_t AndroidCompatMinSize(size_t lhs, size_t rhs)
+{
+    return (lhs < rhs) ? lhs : rhs;
+}
+
 inline BOOL SetRect(LPRECT lprc, int xLeft, int yTop, int xRight, int yBottom)
 {
     if (!lprc) return FALSE;
@@ -218,6 +292,20 @@ inline BOOL PtInRect(const RECT* lprc, POINT pt)
     if (!lprc) return FALSE;
     return (pt.x >= lprc->left && pt.x < lprc->right &&
             pt.y >= lprc->top && pt.y < lprc->bottom) ? TRUE : FALSE;
+}
+
+inline BOOL OffsetRect(LPRECT lprc, int dx, int dy)
+{
+    if (!lprc)
+    {
+        return FALSE;
+    }
+
+    lprc->left += dx;
+    lprc->right += dx;
+    lprc->top += dy;
+    lprc->bottom += dy;
+    return TRUE;
 }
 
 inline BOOL IntersectRect(LPRECT lprcDst, const RECT* lprcSrc1, const RECT* lprcSrc2)
@@ -422,6 +510,12 @@ typedef uintptr_t DWORD_PTR;
 #define WM_KEYDOWN          0x0100
 #define WM_KEYUP            0x0101
 #define WM_CHAR             0x0102
+#define WM_SYSKEYDOWN       0x0104
+#define WM_SETTEXT          0x000C
+#define WM_GETTEXT          0x000D
+#define WM_GETTEXTLENGTH    0x000E
+#define WM_ERASEBKGND       0x0014
+#define WM_SETFONT          0x0030
 #define WM_LBUTTONDOWN      0x0201
 #define WM_LBUTTONUP        0x0202
 #define WM_LBUTTONDBLCLK    0x0203
@@ -442,6 +536,35 @@ typedef uintptr_t DWORD_PTR;
 #define WM_KILLFOCUS        0x0008
 #define WM_USER             0x0400
 #define WHEEL_DELTA         120
+
+#define WS_CHILD             0x40000000L
+#define WS_VISIBLE           0x10000000L
+#define WS_VSCROLL           0x00200000L
+#define WS_POPUP             0x80000000L
+#define WS_OVERLAPPED        0x00000000L
+#define WS_OVERLAPPEDWINDOW  0x00CF0000L
+#define WS_CAPTION           0x00C00000L
+#define WS_SYSMENU           0x00080000L
+#define WS_MINIMIZEBOX       0x00020000L
+#define WS_BORDER            0x00800000L
+#define WS_CLIPCHILDREN      0x02000000L
+#define WS_CLIPSIBLINGS      0x04000000L
+
+#define ES_MULTILINE         0x0004L
+#define ES_PASSWORD          0x0020L
+#define ES_AUTOHSCROLL       0x0080L
+#define ES_AUTOVSCROLL       0x0040L
+
+#define EM_GETLINECOUNT      0x00BA
+#define EM_SETSEL            0x00B1
+#define EM_SCROLL            0x00B5
+#define EM_LINESCROLL        0x00B6
+#define EM_SETLIMITTEXT      0x00C5
+
+#define SB_LINEUP            0
+#define SB_LINEDOWN          1
+#define SB_PAGEUP            2
+#define SB_PAGEDOWN          3
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GDI / font stubs
@@ -727,24 +850,196 @@ inline void OutputDebugString(const char* msg) { OutputDebugStringA(msg); }
 // ─────────────────────────────────────────────────────────────────────────────
 // Window / message stubs (no-op; game logic doesn't need real Win32 here)
 // ─────────────────────────────────────────────────────────────────────────────
-inline BOOL PostMessage(HWND, UINT, DWORD, DWORD)    { return TRUE; }
-inline BOOL SendMessage(HWND, UINT, DWORD, DWORD)    { return TRUE; }
+inline HWND CreateWindowW(const wchar_t* className, const wchar_t* windowName, DWORD style,
+                          int, int, int, int, HWND, HMENU, HINSTANCE, LPVOID)
+{
+    AndroidCompatWindowState state{};
+    state.className = className ? className : L"";
+    state.text = windowName ? windowName : L"";
+    state.wndProc = 0;
+    state.userData = 0;
+    state.style = style;
+    state.textLimit = 0x7FFFFFFFu;
+    state.visible = (style & WS_VISIBLE) != 0;
+
+    AndroidCompatWindowState* handleState = new AndroidCompatWindowState(state);
+    HWND handle = reinterpret_cast<HWND>(handleState);
+
+    std::lock_guard<std::mutex> lock(AndroidCompatWindowMutex());
+    AndroidCompatWindowMap()[handle] = state;
+    return handle;
+}
+inline LRESULT SendMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+    std::lock_guard<std::mutex> lock(AndroidCompatWindowMutex());
+    AndroidCompatWindowState* state = AndroidCompatGetWindowState(hWnd);
+    if (!state)
+    {
+        return 0;
+    }
+
+    switch (msg)
+    {
+    case WM_SETTEXT:
+    {
+        const wchar_t* newText = reinterpret_cast<const wchar_t*>(lParam);
+        if (!newText)
+        {
+            state->text.clear();
+            return TRUE;
+        }
+
+        size_t sourceLength = wcslen(newText);
+        size_t maxLength = (state->textLimit > 0) ? (size_t)state->textLimit : sourceLength;
+        state->text.assign(newText, AndroidCompatMinSize(sourceLength, maxLength));
+        return TRUE;
+    }
+    case WM_GETTEXT:
+    {
+        wchar_t* output = reinterpret_cast<wchar_t*>(lParam);
+        if (!output || wParam == 0)
+        {
+            return 0;
+        }
+
+        size_t maxChars = static_cast<size_t>(wParam);
+        size_t copyLength = AndroidCompatMinSize(state->text.size(), maxChars - 1);
+        if (copyLength > 0)
+        {
+            wmemcpy(output, state->text.c_str(), copyLength);
+        }
+        output[copyLength] = L'\0';
+        return static_cast<LRESULT>(copyLength);
+    }
+    case WM_GETTEXTLENGTH:
+        return static_cast<LRESULT>(state->text.size());
+    case WM_SETFONT:
+        return 0;
+    case EM_SETLIMITTEXT:
+        state->textLimit = static_cast<UINT>(wParam);
+        if (state->text.size() > state->textLimit)
+        {
+            state->text.resize(state->textLimit);
+        }
+        return 0;
+    case EM_GETLINECOUNT:
+        return static_cast<LRESULT>(AndroidCompatCountLines(state->text));
+    case EM_SETSEL:
+    case EM_SCROLL:
+    case EM_LINESCROLL:
+        return 0;
+    default:
+        return 0;
+    }
+}
+inline BOOL PostMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+    SendMessage(hWnd, msg, wParam, lParam);
+    return TRUE;
+}
+inline LRESULT SendMessageW(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) { return SendMessage(hWnd, msg, wParam, lParam); }
+inline BOOL PostMessageW(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) { return PostMessage(hWnd, msg, wParam, lParam); }
 inline BOOL SetTimer(HWND, UINT, UINT, void*)        { return TRUE; }
 inline BOOL KillTimer(HWND, UINT)                    { return TRUE; }
-inline BOOL ShowWindow(HWND, int)                    { return TRUE; }
+inline BOOL ShowWindow(HWND hWnd, int nCmdShow)
+{
+    std::lock_guard<std::mutex> lock(AndroidCompatWindowMutex());
+    AndroidCompatWindowState* state = AndroidCompatGetWindowState(hWnd);
+    if (state)
+    {
+        state->visible = (nCmdShow != 0);
+    }
+    return TRUE;
+}
 inline BOOL UpdateWindow(HWND)                       { return TRUE; }
-inline BOOL DestroyWindow(HWND)                      { return TRUE; }
+inline BOOL DestroyWindow(HWND hWnd)
+{
+    std::lock_guard<std::mutex> lock(AndroidCompatWindowMutex());
+    auto& windowMap = AndroidCompatWindowMap();
+    auto it = windowMap.find(hWnd);
+    if (it == windowMap.end())
+    {
+        return TRUE;
+    }
+
+    AndroidCompatWindowState* state = reinterpret_cast<AndroidCompatWindowState*>(hWnd);
+    windowMap.erase(it);
+    delete state;
+
+    if (AndroidCompatFocusedWindow() == hWnd)
+    {
+        AndroidCompatFocusedWindow() = nullptr;
+    }
+
+    return TRUE;
+}
 inline BOOL InvalidateRect(HWND, const RECT*, BOOL)  { return TRUE; }
-inline HWND GetFocus()                               { return nullptr; }
-inline HWND SetFocus(HWND h)                         { return h; }
-inline BOOL IsWindow(HWND h)                         { return h != nullptr; }
+inline HWND GetFocus()                               { return AndroidCompatFocusedWindow(); }
+inline HWND SetFocus(HWND h)
+{
+    HWND previous = AndroidCompatFocusedWindow();
+    AndroidCompatFocusedWindow() = h;
+    return previous;
+}
+inline BOOL IsWindow(HWND h)
+{
+    if (!h)
+    {
+        return FALSE;
+    }
+
+    std::lock_guard<std::mutex> lock(AndroidCompatWindowMutex());
+    return AndroidCompatWindowMap().find(h) != AndroidCompatWindowMap().end() ? TRUE : FALSE;
+}
 inline BOOL IsBadReadPtr(const void* p, UINT_PTR)   { return p == nullptr; }
+inline SHORT GetKeyState(int) { return 0; }
 
 #define GWL_WNDPROC  (-4)
 #define GWL_USERDATA (-21)
 
-inline LONG_PTR SetWindowLongPtrW(HWND, int, LONG_PTR) { return 0; }
-inline LONG_PTR GetWindowLongPtrW(HWND, int) { return 0; }
+inline LONG_PTR SetWindowLongPtrW(HWND hWnd, int index, LONG_PTR value)
+{
+    std::lock_guard<std::mutex> lock(AndroidCompatWindowMutex());
+    AndroidCompatWindowState* state = AndroidCompatGetWindowState(hWnd);
+    if (!state)
+    {
+        return 0;
+    }
+
+    LONG_PTR previous = 0;
+    if (index == GWL_WNDPROC)
+    {
+        previous = state->wndProc;
+        state->wndProc = value;
+    }
+    else if (index == GWL_USERDATA)
+    {
+        previous = state->userData;
+        state->userData = value;
+    }
+
+    return previous;
+}
+inline LONG_PTR GetWindowLongPtrW(HWND hWnd, int index)
+{
+    std::lock_guard<std::mutex> lock(AndroidCompatWindowMutex());
+    AndroidCompatWindowState* state = AndroidCompatGetWindowState(hWnd);
+    if (!state)
+    {
+        return 0;
+    }
+
+    if (index == GWL_WNDPROC)
+    {
+        return state->wndProc;
+    }
+    if (index == GWL_USERDATA)
+    {
+        return state->userData;
+    }
+
+    return 0;
+}
 inline LONG SetWindowLongW(HWND hWnd, int index, LONG value)
 {
     return (LONG)SetWindowLongPtrW(hWnd, index, (LONG_PTR)value);
@@ -753,7 +1048,14 @@ inline LONG GetWindowLongW(HWND hWnd, int index)
 {
     return (LONG)GetWindowLongPtrW(hWnd, index);
 }
-inline LRESULT CallWindowProcW(WNDPROC, HWND, UINT, WPARAM, LPARAM) { return 0; }
+inline LRESULT CallWindowProcW(WNDPROC wndProc, HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+    if (wndProc)
+    {
+        return wndProc(hWnd, msg, wParam, lParam);
+    }
+    return 0;
+}
 
 #define CF_TEXT 1
 inline BOOL OpenClipboard(HWND) { return TRUE; }
@@ -761,6 +1063,30 @@ inline BOOL CloseClipboard() { return TRUE; }
 inline HANDLE GetClipboardData(UINT) { return nullptr; }
 inline LPVOID GlobalLock(HGLOBAL hMem) { return hMem; }
 inline BOOL GlobalUnlock(HGLOBAL) { return TRUE; }
+inline BOOL GetCaretPos(POINT* pt)
+{
+    if (!pt)
+    {
+        return FALSE;
+    }
+
+    pt->x = 0;
+    pt->y = 0;
+    return TRUE;
+}
+inline int GetWindowTextW(HWND hWnd, wchar_t* buffer, int maxCount)
+{
+    if (!buffer || maxCount <= 0)
+    {
+        return 0;
+    }
+
+    return static_cast<int>(SendMessage(hWnd, WM_GETTEXT, static_cast<WPARAM>(maxCount), reinterpret_cast<LPARAM>(buffer)));
+}
+inline BOOL SetWindowTextW(HWND hWnd, const wchar_t* text)
+{
+    return SendMessage(hWnd, WM_SETTEXT, 0, reinterpret_cast<LPARAM>(text)) ? TRUE : FALSE;
+}
 
 typedef struct _STARTUPINFOA {
     DWORD cb;
@@ -833,15 +1159,22 @@ inline int  MessageBox(HWND h, const char* t, const char* c, UINT f) { return Me
 #define IDYES        6
 #define IDNO         7
 #define SW_SHOW      5
+#define SW_HIDE      0
 #define ERROR_ALREADY_EXISTS 183
 #ifndef MCI_SEQ_MAPPER
 #  define MCI_SEQ_MAPPER 0xFFFFFFFFu
 #endif
 #define WM_IME_CONTROL            0x0283
+#define WM_IME_STARTCOMPOSITION   0x010D
+#define WM_IME_ENDCOMPOSITION     0x010E
+#define WM_IME_COMPOSITION        0x010F
+#define WM_IME_NOTIFY             0x0282
 #define IMC_SETCOMPOSITIONWINDOW  0x000C
 #define CFS_DEFAULT               0x0000
 #define CFS_RECT                  0x0001
 #define CFS_POINT                 0x0002
+#define CFS_FORCE_POSITION        0x0020
+#define IMN_SETOPENSTATUS         0x0008
 #define IME_CMODE_NATIVE 0x0001
 #define IME_CMODE_ALPHANUMERIC 0x0000
 #define IME_SMODE_NONE   0x0000
@@ -856,6 +1189,20 @@ typedef struct tagCOMPOSITIONFORM {
 inline HIMC ImmGetContext(HWND) { return nullptr; }
 inline HWND ImmGetDefaultIMEWnd(HWND hWnd) { return hWnd; }
 inline BOOL ImmReleaseContext(HWND, HIMC) { return TRUE; }
+inline BOOL ImmGetCompositionWindow(HIMC, COMPOSITIONFORM* compositionForm)
+{
+    if (!compositionForm)
+    {
+        return FALSE;
+    }
+
+    compositionForm->dwStyle = CFS_DEFAULT;
+    compositionForm->ptCurrentPos.x = 0;
+    compositionForm->ptCurrentPos.y = 0;
+    SetRect(&compositionForm->rcArea, 0, 0, 0, 0);
+    return TRUE;
+}
+inline BOOL ImmSetCompositionWindow(HIMC, const COMPOSITIONFORM*) { return TRUE; }
 inline BOOL ImmGetConversionStatus(HIMC, DWORD* lpfdwConversion, DWORD* lpfdwSentence)
 {
     if (lpfdwConversion) *lpfdwConversion = 0;
@@ -1054,6 +1401,30 @@ inline int _muUltoaS(unsigned long value, char* buf, int base)
     return _muUltoaS(value, buf, _muObjectSize(buf), base);
 }
 
+inline int _muVsntprintf(char* buffer, size_t sizeOfBuffer, size_t count, const char* format, va_list args)
+{
+    if (!buffer || sizeOfBuffer == 0 || !format)
+    {
+        return -1;
+    }
+
+    size_t limit = sizeOfBuffer;
+    if (count != _TRUNCATE && count < limit)
+    {
+        limit = count + 1;
+    }
+
+    int written = vsnprintf(buffer, limit, format, args);
+    if (written < 0)
+    {
+        buffer[0] = '\0';
+        return -1;
+    }
+
+    buffer[sizeOfBuffer - 1] = '\0';
+    return written;
+}
+
 #ifndef sprintf_s
 #  define sprintf_s(...) _muSprintfS(__VA_ARGS__)
 #endif
@@ -1075,12 +1446,18 @@ inline int _muUltoaS(unsigned long value, char* buf, int base)
 #ifndef strncat_s
 #  define strncat_s(dst, sz, src, cnt) _muStrncatS((dst),(sz),(src),(cnt))
 #endif
-#ifndef _itoa_s
-#  define _itoa_s(val, buf, sz, base) (snprintf((buf),(sz),((base)==16?"%x":"%d"),(val)),(void)0)
+#ifdef _itoa_s
+#  undef _itoa_s
 #endif
-#ifndef _ultoa_s
-#  define _ultoa_s(...) _muUltoaS(__VA_ARGS__)
+#define _itoa_s(val, buf, sz, base) (snprintf((buf),(sz),((base)==16?"%x":"%d"),(val)),(void)0)
+#ifdef _ultoa_s
+#  undef _ultoa_s
 #endif
+#define _ultoa_s(...) _muUltoaS(__VA_ARGS__)
+#ifdef _vsntprintf
+#  undef _vsntprintf
+#endif
+#define _vsntprintf(buf, cnt, fmt, args) _muVsntprintf((buf), _muObjectSize(buf), (cnt), (fmt), (args))
 // wsprintf (Win32 ANSI sprintf, no size arg) → snprintf with large buffer size
 #ifndef wsprintf
 #  define wsprintf(buf, fmt, ...) snprintf((buf), 4096, (fmt), ##__VA_ARGS__)
