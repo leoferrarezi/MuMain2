@@ -7,18 +7,29 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.provider.Settings;
+import android.util.Log;
 import android.view.WindowManager;
+import java.io.ByteArrayOutputStream;
 import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 public class MainActivity extends NativeActivity {
 
+    private static final String TAG = "MUAssetsJava";
+
+    private volatile int lastHttpStatusCode = 0;
+
     static {
+        System.setProperty("http.keepAlive", "false");
+        System.setProperty("http.maxConnections", "1");
         System.loadLibrary("mucrossengine");
     }
 
@@ -53,6 +64,64 @@ public class MainActivity extends NativeActivity {
         if (intent == null) return "";
         String value = intent.getStringExtra("MU_ASSET_SERVER");
         return value != null ? value : "";
+    }
+
+    // Called from C++ HTTP compat layer. Returns response bytes for 2xx.
+    public byte[] httpGetBytes(String url) {
+        lastHttpStatusCode = 0;
+        if (url == null || url.isEmpty()) {
+            return null;
+        }
+
+        HttpURLConnection connection = null;
+        try {
+            URL target = new URL(url);
+            connection = (HttpURLConnection) target.openConnection();
+            connection.setInstanceFollowRedirects(true);
+            connection.setRequestMethod("GET");
+            connection.setConnectTimeout(15000);
+            connection.setReadTimeout(120000);
+            connection.setUseCaches(false);
+            connection.setRequestProperty("Connection", "close");
+            connection.setRequestProperty("Accept-Encoding", "identity");
+            connection.setRequestProperty("User-Agent", "MuAndroid/1.0");
+            connection.setDoInput(true);
+
+            int status = connection.getResponseCode();
+            lastHttpStatusCode = status;
+
+            InputStream input = (status >= 200 && status < 300)
+                ? connection.getInputStream()
+                : connection.getErrorStream();
+            if (input == null) {
+                return null;
+            }
+
+            int contentLength = connection.getContentLength();
+            ByteArrayOutputStream output = new ByteArrayOutputStream(Math.max(contentLength, 8192));
+            byte[] buffer = new byte[8192];
+            int read;
+            while ((read = input.read(buffer)) != -1) {
+                output.write(buffer, 0, read);
+            }
+            input.close();
+
+            if (status >= 200 && status < 300) {
+                return output.toByteArray();
+            }
+            return null;
+        } catch (IOException exception) {
+            Log.e(TAG, "httpGetBytes failed for " + url + ": " + exception.getMessage());
+            return null;
+        } finally {
+            if (connection != null) {
+                connection.disconnect();
+            }
+        }
+    }
+
+    public int getLastHttpStatusCode() {
+        return lastHttpStatusCode;
     }
 
     // Called from C++ to show soft keyboard

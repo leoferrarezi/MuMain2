@@ -25,7 +25,7 @@ O projeto ja possui base Android com:
 
 Os principais bloqueios conhecidos no momento sao:
 
-- Distribuicao de assets já suporta manifesto remoto/local e pacote `.zip` com extração no Android, mas ainda falta manifesto completo de produção.
+- Distribuicao de assets já suporta manifesto remoto/local e pacote `.zip` com extração no Android; falta publicar/validar em ambiente de servidor definitivo.
 - Validacao CRC foi integrada com sidecar opcional (`.crc32`), mas falta politica final de integridade para todos os pacotes.
 - Integracao completa de teclado virtual/IME Android ainda pendente.
 - Validacao funcional em runtime no dispositivo Android ainda pendente.
@@ -75,9 +75,16 @@ Para reproduzir o build local usado nesta etapa:
 - Entradas de pacote no manifesto agora podem declarar extração por token (`extract=...`) e usam marcador local `.extracted` para confirmar extração concluída.
 - Adicionado template de manifesto de produção em `docs/assets-server/Data/assets-manifest.txt` (formatos aceitos, exemplos de `archive=1`, `extract=...` e CRC).
 - Adicionada ferramenta CLI para gerar manifesto completo com CRC32 automaticamente: `tools/generate_assets_manifest.cpp` + wrapper `tools/generate_assets_manifest.sh`.
+- Gerado manifesto completo de produção em `Data/assets-manifest.txt` usando a árvore real de assets local (`Data/`) com 2117 entradas.
 - Atualizado `ANDROID_PORT.md` com o status atual da Fase 7 e pendencias remanescentes.
 - Atualizado o relatorio diario `docs/android-port-compat-ui-2026-04-13.md` para refletir a rodada atual de implementacao.
 - Validado build Android com `./gradlew ':app:buildCMakeDebug[arm64-v8a]' --no-daemon` e `./gradlew assembleDebug --no-daemon`.
+- Fortalecido o transporte HTTP no compat WinINet Android com retries internos, timeout de I/O maior, logs detalhados de falha e tratamento de `2xx`.
+- Corrigido crash de recursao no stub GL (`glViewport`/`gl*`) e estabilizado fechamento de handles no `FileDownloader`.
+- Corrigida validacao de CRC32 no Android para aritmetica estritamente 32-bit (evitando divergencia `unsigned long` 64-bit).
+- Adicionada instrumentacao de diagnostico no downloader Android (`MUAssets`) para rastrear erro de transporte em runtime.
+- Investigado fallback Java HTTP (`HttpURLConnection`) e bridge JNI para o `MainActivity`; mantido desativado no fluxo final por nao resolver o bloqueio de transporte do arquivo `Data/Custom/NPC/Monster1000.bmd`.
+- Bloqueio atual de runtime permanece: abort/timeout de conexao no download de `Monster1000.bmd` no emulador, mesmo com retries.
 
 ### 2026-04-13
 

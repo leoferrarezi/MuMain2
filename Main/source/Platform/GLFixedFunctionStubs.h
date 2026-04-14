@@ -11,8 +11,34 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 #include <GLES3/gl3.h>
+#include <EGL/egl.h>
+#include <dlfcn.h>
 #include "OpenGLESRenderBackend.h"
 #include "RenderStateCompat.h"
+
+namespace GLFixedNative
+{
+inline void* LoadProc(const char* name)
+{
+    static void* s_glesHandle = dlopen("libGLESv3.so", RTLD_NOW | RTLD_LOCAL);
+    void* proc = nullptr;
+    if (s_glesHandle)
+    {
+        proc = dlsym(s_glesHandle, name);
+    }
+    if (!proc)
+    {
+        proc = reinterpret_cast<void*>(eglGetProcAddress(name));
+    }
+    return proc;
+}
+
+template <typename Fn>
+inline Fn Proc(const char* name)
+{
+    return reinterpret_cast<Fn>(LoadProc(name));
+}
+} // namespace GLFixedNative
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Legacy GL tokens not present in GLES3 headers
@@ -395,9 +421,18 @@ inline void glShadeModel(GLenum) { /* no-op */ }
 // ─────────────────────────────────────────────────────────────────────────────
 inline void glRasterPos2i(int x, int y) { GLESFF::RasterPos2i(x, y); }
 inline void glRasterPos2f(float, float) { }
-inline void glPixelStorei(GLenum pname, GLint param) { ::glPixelStorei(pname, param); }
+inline void glPixelStorei(GLenum pname, GLint param)
+{
+    using Fn = void (*)(GLenum, GLint);
+    static Fn fn = GLFixedNative::Proc<Fn>("glPixelStorei");
+    if (fn) fn(pname, param);
+}
 inline void glReadPixels(GLint x,GLint y,GLsizei w,GLsizei h,GLenum fmt,GLenum type,void* d)
-    { ::glReadPixels(x,y,w,h,fmt,type,d); }
+{
+    using Fn = void (*)(GLint, GLint, GLsizei, GLsizei, GLenum, GLenum, void*);
+    static Fn fn = GLFixedNative::Proc<Fn>("glReadPixels");
+    if (fn) fn(x, y, w, h, fmt, type, d);
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Viewport / scissor
@@ -405,27 +440,61 @@ inline void glReadPixels(GLint x,GLint y,GLsizei w,GLsizei h,GLenum fmt,GLenum t
 inline void glViewport(GLint x, GLint y, GLsizei w, GLsizei h)
 {
     g_rs.vpX=x; g_rs.vpY=y; g_rs.vpW=w; g_rs.vpH=h;
-    ::glViewport(x,y,w,h);
+    using Fn = void (*)(GLint, GLint, GLsizei, GLsizei);
+    static Fn fn = GLFixedNative::Proc<Fn>("glViewport");
+    if (fn) fn(x, y, w, h);
 }
 inline void glScissor(GLint x, GLint y, GLsizei w, GLsizei h)
 {
     g_rs.scissorX=x; g_rs.scissorY=y; g_rs.scissorW=w; g_rs.scissorH=h;
-    ::glScissor(x,y,w,h);
+    using Fn = void (*)(GLint, GLint, GLsizei, GLsizei);
+    static Fn fn = GLFixedNative::Proc<Fn>("glScissor");
+    if (fn) fn(x, y, w, h);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Color mask / clear
 // ─────────────────────────────────────────────────────────────────────────────
-inline void glClearColor(float r,float g,float b,float a) { ::glClearColor(r,g,b,a); }
-inline void glClear(GLbitfield mask)                       { ::glClear(mask); }
-inline void glColorMask(GLboolean r,GLboolean g,GLboolean b,GLboolean a) { ::glColorMask(r,g,b,a); }
-inline void glClearDepthf(float d)                         { ::glClearDepthf(d); }
+inline void glClearColor(float r,float g,float b,float a)
+{
+    using Fn = void (*)(GLfloat, GLfloat, GLfloat, GLfloat);
+    static Fn fn = GLFixedNative::Proc<Fn>("glClearColor");
+    if (fn) fn(r, g, b, a);
+}
+inline void glClear(GLbitfield mask)
+{
+    using Fn = void (*)(GLbitfield);
+    static Fn fn = GLFixedNative::Proc<Fn>("glClear");
+    if (fn) fn(mask);
+}
+inline void glColorMask(GLboolean r,GLboolean g,GLboolean b,GLboolean a)
+{
+    using Fn = void (*)(GLboolean, GLboolean, GLboolean, GLboolean);
+    static Fn fn = GLFixedNative::Proc<Fn>("glColorMask");
+    if (fn) fn(r, g, b, a);
+}
+inline void glClearDepthf(float d)
+{
+    using Fn = void (*)(GLfloat);
+    static Fn fn = GLFixedNative::Proc<Fn>("glClearDepthf");
+    if (fn) fn(d);
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Flush / finish
 // ─────────────────────────────────────────────────────────────────────────────
-inline void glFlush()  { ::glFlush(); }
-inline void glFinish() { ::glFinish(); }
+inline void glFlush()
+{
+    using Fn = void (*)();
+    static Fn fn = GLFixedNative::Proc<Fn>("glFlush");
+    if (fn) fn();
+}
+inline void glFinish()
+{
+    using Fn = void (*)();
+    static Fn fn = GLFixedNative::Proc<Fn>("glFinish");
+    if (fn) fn();
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Direct draw calls — upload uniforms first
@@ -433,12 +502,16 @@ inline void glFinish() { ::glFinish(); }
 inline void glDrawArrays(GLenum mode, GLint first, GLsizei count)
 {
     GLESFF::FlushUniforms();
-    ::glDrawArrays(mode, first, count);
+    using Fn = void (*)(GLenum, GLint, GLsizei);
+    static Fn fn = GLFixedNative::Proc<Fn>("glDrawArrays");
+    if (fn) fn(mode, first, count);
 }
 inline void glDrawElements(GLenum mode, GLsizei count, GLenum type, const void* indices)
 {
     GLESFF::FlushUniforms();
-    ::glDrawElements(mode, count, type, indices);
+    using Fn = void (*)(GLenum, GLsizei, GLenum, const void*);
+    static Fn fn = GLFixedNative::Proc<Fn>("glDrawElements");
+    if (fn) fn(mode, count, type, indices);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

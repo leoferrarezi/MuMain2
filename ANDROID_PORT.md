@@ -202,7 +202,8 @@ Atualizar os checkboxes conforme cada item for concluído.
 - [x] Definir URL base do servidor de assets por parâmetro de execução (`MU_ASSET_SERVER` → intent extra `MU_ASSET_SERVER`)
 - [x] Publicar template de manifesto de produção no repositório (`docs/assets-server/Data/assets-manifest.txt`)
 - [x] Adicionar ferramenta para geração automática do manifesto de produção com CRC (`tools/generate_assets_manifest.sh`)
-- [ ] Publicar manifesto completo de arquivos (hoje: lista mínima + suporte a manifesto)
+- [x] Gerar manifesto completo de arquivos em `Data/assets-manifest.txt` (2117 entradas, incluindo pacotes `.zip`)
+- [ ] Estabilizar transporte HTTP Android para arquivos grandes no runtime (`Data/Custom/NPC/Monster1000.bmd` ainda falha por abort/timeout no emulador)
 
 ---
 
@@ -261,4 +262,4 @@ adb logcat -s MUAssets:V           # download e carregamento de assets
 
 ---
 
-*Última atualização: 2026-04-14 — downloader Android integrado ao código original (`GameShop/FileDownloader` + `HTTPConnecter`) com progresso em tela, compat WinINet HTTP ativa no Android, ajuste no loop de transferência (`TransferRemoteFile`), suporte a manifesto remoto/local de assets (`assets-manifest.txt`) com parser robusto + escrita segura em `.tmp` e refresh periódico (6h), validação CRC32 por sidecar opcional (`.crc32`), fluxo de pacote `.zip` + extração JNI (`MainActivity.extractZipArchive`) com marcador `.extracted`, template de manifesto de produção publicado em `docs/assets-server/Data/assets-manifest.txt`, ferramenta de geração automática (`tools/generate_assets_manifest.sh`), override de servidor via `MU_ASSET_SERVER` (intent extra) e builds `buildCMakeDebug[arm64-v8a]` + `assembleDebug` validados*
+*Última atualização: 2026-04-14 — downloader Android mantido no código original (`GameShop/FileDownloader` + `HTTPConnecter`) com progresso em tela; compat WinINet HTTP no Android recebeu retries internos, instrumentação detalhada e ajustes de timeout; validação CRC32 Android corrigida para 32-bit estrito; manifesto remoto/local e fluxo `.zip` + extração JNI seguem ativos; builds `buildCMakeDebug[arm64-v8a]` + `assembleDebug` validados. Pendência crítica atual: falha de transporte (abort/timeout) no arquivo `Data/Custom/NPC/Monster1000.bmd` durante 1ª execução no emulador.*

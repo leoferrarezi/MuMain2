@@ -9,6 +9,7 @@ Compatibility status (current)
 - Android Win32 compat: WinINet HTTP path active (InternetOpen/InternetConnect/HttpOpenRequest/HttpSendRequest/HttpQueryInfo/InternetReadFile).
 - Input bridge: touch->mouse + soft keyboard focus integration active.
 - Game downloader path: reusing original GameShop downloader code path (FileDownloader + HTTPConnecter).
+- Runtime diagnostic: MUAssets logs now expose detailed transport failures (errno/stage/file) for downloader troubleshooting.
 
 UI/Data status (current)
 - First-run downloader screen is active (basic GLES clear/progress tick).
@@ -24,6 +25,7 @@ UI/Data status (current)
 - Package extraction completion marker active: `<package>.extracted`.
 - Production manifest template published in repo: `docs/assets-server/Data/assets-manifest.txt`.
 - Production manifest generator available: `tools/generate_assets_manifest.sh`.
+- Full manifest generated from local real asset tree: `Data/assets-manifest.txt` (2117 entries).
 - Download writes directly to game data destination under getExternalFilesDir().
 - Optional integrity validation active: if `<arquivo>.crc32` exists on server, app validates CRC32 and rejects mismatches.
 - Asset server URL override active via `MU_ASSET_SERVER`.
@@ -34,19 +36,25 @@ Runtime override wiring
 - android_main.cpp reads getAssetServerUrl() and calls GameDownloader::SetServerURL().
 
 Pending to continue implementation
-1. Run `tools/generate_assets_manifest.sh` on the real asset tree and publish the generated `Data/assets-manifest.txt`.
-2. Define production policy for mandatory CRC manifests (today sidecar remains optional by design).
-3. Validate package extraction in real device restart/failure scenarios.
-4. Optional: richer downloader UI (text/progress bar).
-5. Optional: in-app fallback settings UI for asset server URL.
+1. Stabilize HTTP transport on Android first-run for large file `Data/Custom/NPC/Monster1000.bmd` (current blocker: abort/timeout in emulator runtime).
+2. Publish `Data/assets-manifest.txt` to the definitive asset server.
+3. Define production policy for mandatory CRC manifests (today sidecar remains optional by design).
+4. Validate package extraction in real device restart/failure scenarios.
+5. Optional: richer downloader UI (text/progress bar).
+6. Optional: in-app fallback settings UI for asset server URL.
 
 Files touched in this cycle
 - Main/source/Platform/GameDownloader.cpp
 - Main/android/app/src/main/cpp/android_main.cpp
 - Main/android/app/src/main/java/com/mucrossengine/client/MainActivity.java
+- Main/android/app/src/main/AndroidManifest.xml
+- Main/source/Platform/AndroidWin32Compat.h
+- Main/source/GameShop/FileDownloader/HTTPConnecter.cpp
+- Main/source/GameShop/FileDownloader/FileDownloader.cpp
 - tools/generate_assets_manifest.cpp
 - tools/generate_assets_manifest.sh
 - docs/assets-server/Data/assets-manifest.txt
+- Data/assets-manifest.txt
 - ANDROID_PORT.md
 - README.md
 - docs/android-port-compat-ui-2026-04-13.md

@@ -372,6 +372,7 @@ void android_main(android_app* app)
     LOGI("android_main: start");
 
     g_app = app;
+    AndroidCompatSetNativeActivity(app->activity);
     app->onAppCmd    = OnAppCmd;
     app->onInputEvent = OnInputEvent;
 

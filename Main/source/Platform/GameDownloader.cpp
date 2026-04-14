@@ -10,7 +10,6 @@
 #include "AndroidEglWindow.h"
 #include "Platform/AndroidWin32Compat.h"
 #include "GameShop/ShopListManager/interface/FileDownloader.h"
-#include "../../../Util/CCRC32.H"
 #include <GLES3/gl3.h>
 #include <android/log.h>
 #include <sys/stat.h>
@@ -61,7 +60,7 @@ struct AssetEntry
 {
     std::string relativePath;
     bool hasExpectedCRC;
-    unsigned long expectedCRC;
+    uint32_t expectedCRC;
     bool isArchivePackage;
     std::string extractRelativePath;
 };
@@ -239,25 +238,44 @@ static bool DownloadLegacyFile(const AssetServerEndpoint& endpoint,
                                bool overwrite,
                                WZResult* outResult)
 {
-    DownloadServerInfo serverInfo;
-    serverInfo.SetPassiveMode(FALSE);
-    serverInfo.SetOverWrite(overwrite ? TRUE : FALSE);
-    serverInfo.SetDownloaderType(HTTP);
-    serverInfo.SetConnectTimeout(0);      // synchronous path on Android
-    serverInfo.SetReadBufferSize(64 * 1024);
-    serverInfo.SetServerInfo((TCHAR*)endpoint.host.c_str(),
-                             endpoint.port,
-                             (TCHAR*)"",
-                             (TCHAR*)"");
+    const int k_maxAttempts = 3;
+    WZResult result;
 
-    DownloadFileInfo fileInfo;
-    fileInfo.SetFilePath((TCHAR*)fileName.c_str(),
-                         (TCHAR*)localPath.c_str(),
-                         (TCHAR*)remotePath.c_str(),
-                         nullptr);
+    for (int attempt = 1; attempt <= k_maxAttempts; ++attempt)
+    {
+        DownloadServerInfo serverInfo;
+        serverInfo.SetPassiveMode(FALSE);
+        serverInfo.SetOverWrite(overwrite ? TRUE : FALSE);
+        serverInfo.SetDownloaderType(HTTP);
+        serverInfo.SetConnectTimeout(0);      // synchronous path on Android
+        serverInfo.SetReadBufferSize(64 * 1024);
+        serverInfo.SetServerInfo((TCHAR*)endpoint.host.c_str(),
+                                 endpoint.port,
+                                 (TCHAR*)"",
+                                 (TCHAR*)"");
 
-    FileDownloader downloader(stateEvent, &serverInfo, &fileInfo);
-    WZResult result = downloader.DownloadFile();
+        DownloadFileInfo fileInfo;
+        fileInfo.SetFilePath((TCHAR*)fileName.c_str(),
+                             (TCHAR*)localPath.c_str(),
+                             (TCHAR*)remotePath.c_str(),
+                             nullptr);
+
+        FileDownloader downloader(stateEvent, &serverInfo, &fileInfo);
+        result = downloader.DownloadFile();
+        if (result.IsSuccess())
+        {
+            break;
+        }
+
+        if (attempt < k_maxAttempts)
+        {
+            LOGE("Retrying download (%d/%d): file=%s code=0x%08X winErr=%u msg=%s",
+                 attempt + 1, k_maxAttempts, fileName.c_str(),
+                 result.GetErrorCode(), result.GetWindowErrorCode(), result.GetErrorMessage());
+            Sleep(300);
+        }
+    }
+
     if (outResult)
     {
         *outResult = result;
@@ -335,7 +353,7 @@ static std::string NormalizeRelativePath(std::string path)
     return path;
 }
 
-static bool ParseCRC32Text(const std::string& rawText, unsigned long& outCRC);
+static bool ParseCRC32Text(const std::string& rawText, uint32_t& outCRC);
 
 static std::string ToLowerASCII(std::string value)
 {
@@ -512,7 +530,7 @@ static bool IsLikelyUnkeyedCRCToken(const std::string& token)
     return allHex && token.size() == 8;
 }
 
-static bool TryParseManifestCRCToken(const std::string& token, bool& outIsCRC, unsigned long& outCRC)
+static bool TryParseManifestCRCToken(const std::string& token, bool& outIsCRC, uint32_t& outCRC)
 {
     outIsCRC = false;
 
@@ -591,7 +609,7 @@ static bool TryParseManifestPathToken(const std::string& token, std::string& out
         return false;
     }
 
-    unsigned long numericValue = 0;
+    uint32_t numericValue = 0;
     if (ParseCRC32Text(text, numericValue) &&
         text.find('/') == std::string::npos &&
         text.find('.') == std::string::npos)
@@ -653,7 +671,7 @@ static bool ParseManifestText(const std::string& manifestText, std::vector<Asset
             SplitManifestTokens(line, tokens);
 
             bool hasExpectedCRC = false;
-            unsigned long expectedCRC = 0;
+            uint32_t expectedCRC = 0;
             bool isArchivePackage = false;
             std::string extractRelativePath;
             std::vector<std::string> pathCandidates;
@@ -693,7 +711,7 @@ static bool ParseManifestText(const std::string& manifestText, std::vector<Asset
                 }
 
                 bool isCRC = false;
-                unsigned long parsedCRC = 0;
+                uint32_t parsedCRC = 0;
                 if (!TryParseManifestCRCToken(token, isCRC, parsedCRC))
                 {
                     LOGE("Manifest CRC parse error token=%s line=%s", token.c_str(), line.c_str());
@@ -831,7 +849,7 @@ static bool DownloadRequiredFilesManifest(const AssetServerEndpoint& endpoint, s
     return true;
 }
 
-static bool ParseCRC32Text(const std::string& rawText, unsigned long& outCRC)
+static bool ParseCRC32Text(const std::string& rawText, uint32_t& outCRC)
 {
     std::string text = TrimSpaces(rawText);
     if (text.empty())
@@ -873,22 +891,91 @@ static bool ParseCRC32Text(const std::string& rawText, unsigned long& outCRC)
         return false;
     }
 
-    outCRC = parsed;
+    if (parsed > 0xFFFFFFFFul)
+    {
+        return false;
+    }
+
+    outCRC = (uint32_t)parsed;
     return true;
 }
 
-static bool ComputeFileCRC(const std::string& localPath, unsigned long& outCRC)
+static uint32_t ReflectCRC32(uint32_t value, int bits)
 {
-    CCRC32 crc32;
-    return crc32.FileCRC(localPath.c_str(), &outCRC, 1024 * 1024);
+    uint32_t reflected = 0;
+    for (int i = 1; i <= bits; ++i)
+    {
+        if (value & 1u)
+        {
+            reflected |= (1u << (bits - i));
+        }
+        value >>= 1;
+    }
+    return reflected;
+}
+
+static const uint32_t* GetCRC32Table()
+{
+    static uint32_t table[256];
+    static bool initialized = false;
+    if (!initialized)
+    {
+        const uint32_t polynomial = 0x04C11DB7u;
+        for (uint32_t code = 0; code <= 0xFFu; ++code)
+        {
+            uint32_t entry = ReflectCRC32(code, 8) << 24;
+            for (int i = 0; i < 8; ++i)
+            {
+                entry = (entry << 1) ^ ((entry & (1u << 31)) ? polynomial : 0u);
+            }
+            table[code] = ReflectCRC32(entry, 32);
+        }
+        initialized = true;
+    }
+    return table;
+}
+
+static bool ComputeFileCRC(const std::string& localPath, uint32_t& outCRC)
+{
+    FILE* fp = fopen(localPath.c_str(), "rb");
+    if (!fp)
+    {
+        return false;
+    }
+
+    const uint32_t* table = GetCRC32Table();
+    uint32_t crc = 0xFFFFFFFFu;
+    unsigned char buffer[64 * 1024];
+
+    while (!feof(fp))
+    {
+        size_t readCount = fread(buffer, 1, sizeof(buffer), fp);
+        if (readCount > 0)
+        {
+            for (size_t i = 0; i < readCount; ++i)
+            {
+                crc = (crc >> 8) ^ table[(crc & 0xFFu) ^ buffer[i]];
+            }
+        }
+    }
+
+    if (ferror(fp))
+    {
+        fclose(fp);
+        return false;
+    }
+
+    fclose(fp);
+    outCRC = crc ^ 0xFFFFFFFFu;
+    return true;
 }
 
 static bool ValidateLocalFileCRCExpected(const std::string& localPath,
                                          const std::string& label,
-                                         unsigned long expectedCRC,
+                                         uint32_t expectedCRC,
                                          bool deleteOnMismatch)
 {
-    unsigned long actualCRC = 0;
+    uint32_t actualCRC = 0;
     if (!ComputeFileCRC(localPath, actualCRC))
     {
         LOGE("CRC computation failed for %s", localPath.c_str());
@@ -897,8 +984,8 @@ static bool ValidateLocalFileCRCExpected(const std::string& localPath,
 
     if (actualCRC != expectedCRC)
     {
-        LOGE("CRC mismatch for %s expected=0x%08lX actual=0x%08lX",
-             label.c_str(), expectedCRC, actualCRC);
+        LOGE("CRC mismatch for %s expected=0x%08X actual=0x%08X",
+             label.c_str(), (unsigned)expectedCRC, (unsigned)actualCRC);
         if (deleteOnMismatch)
         {
             DeleteFile(localPath.c_str());
@@ -906,7 +993,7 @@ static bool ValidateLocalFileCRCExpected(const std::string& localPath,
         return false;
     }
 
-    LOGI("CRC valid for %s (0x%08lX)", label.c_str(), actualCRC);
+    LOGI("CRC valid for %s (0x%08X)", label.c_str(), (unsigned)actualCRC);
     return true;
 }
 
@@ -915,7 +1002,7 @@ static bool ValidateDownloadedFileCRC(const AssetServerEndpoint& endpoint,
                                       const std::string& localPath,
                                       const std::string& label,
                                       bool hasExpectedCRC,
-                                      unsigned long expectedCRC)
+                                      uint32_t expectedCRC)
 {
     if (hasExpectedCRC)
     {
@@ -941,7 +1028,7 @@ static bool ValidateDownloadedFileCRC(const AssetServerEndpoint& endpoint,
         return false;
     }
 
-    unsigned long sidecarExpectedCRC = 0;
+    uint32_t sidecarExpectedCRC = 0;
     if (!ParseCRC32Text(crcText, sidecarExpectedCRC))
     {
         LOGE("CRC sidecar format invalid for %s: %s", label.c_str(), crcText.c_str());

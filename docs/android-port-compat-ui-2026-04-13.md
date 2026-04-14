@@ -42,9 +42,37 @@ Nesta continuidade foi concluída a integração do downloader Android com o có
   - `tools/generate_assets_manifest.cpp` + `tools/generate_assets_manifest.sh`;
   - varre `Data/`, calcula CRC32 e escreve `Data/assets-manifest.txt`;
   - marca arquivos `.zip` com `archive=1` e `extract=...` no manifesto.
+- Foi gerado manifesto completo a partir da árvore real local `Data/`:
+  - arquivo gerado: `Data/assets-manifest.txt`;
+  - total de entradas: 2117.
 - Builds validados:
   - `./gradlew ':app:buildCMakeDebug[arm64-v8a]' --no-daemon`
   - `./gradlew assembleDebug --no-daemon`
+
+### Atualização complementar (2026-04-14, ciclo de estabilização HTTP)
+
+Rodada adicional focada exclusivamente em estabilidade de download no runtime Android (emulador):
+
+- `Main/source/Platform/AndroidWin32Compat.h`
+  - adicionados retries internos e instrumentação de erro para `AndroidHttpFetch`;
+  - adicionada telemetria de falha de `recv` com bytes parciais e estado de header;
+  - testados caminhos alternativos de transporte (bridge Java `HttpURLConnection` e fallback experimental), mantendo no fluxo final o caminho nativo para continuidade do port.
+- `Main/source/GameShop/FileDownloader/HTTPConnecter.cpp`
+  - status HTTP tratado como faixa `2xx` e mensagem de erro com código retornado.
+- `Main/source/GameShop/FileDownloader/FileDownloader.cpp`
+  - reforço no ciclo de vida de handles para evitar regressões de fechamento.
+- `Main/android/app/src/main/java/com/mucrossengine/client/MainActivity.java`
+  - adicionados métodos auxiliares de HTTP para diagnóstico e logs Java (`MUAssetsJava`) durante investigação.
+- `Main/android/app/src/main/AndroidManifest.xml`
+  - `usesCleartextTraffic=true` para cenários de servidor HTTP sem TLS.
+
+Resultado do ciclo:
+
+- Build Android segue verde (`assembleDebug`).
+- O bloqueio funcional permanece no emulador:
+  - downloads iniciais funcionam;
+  - falha recorrente em `Data/Custom/NPC/Monster1000.bmd` com `Software caused connection abort` seguido de timeout nas tentativas seguintes.
+- Conclusão: Fase 7 permanece **em andamento** até estabilização desse ponto de transporte.
 
 ## Evidências verificadas no código
 
@@ -137,7 +165,7 @@ Status funcional atual do downloader:
 - há refresh periódico do manifesto local (6h) para forçar checagem remota,
 - há validação CRC32 opcional por sidecar (`.crc32`),
 - há fluxo de pacote `.zip` com extração JNI e marcador `.extracted`,
-- manifesto completo de assets ainda não finalizado.
+- há manifesto completo de assets gerado localmente em `Data/assets-manifest.txt`.
 
 Conclusão: manter Fase 7 como em andamento.
 
@@ -156,6 +184,6 @@ Foram ajustados:
 ## Próximo passo recomendado
 
 1. Fechar `CGMFontLayer.cpp` Android path + bundle da fonte TTF.
-2. Rodar `tools/generate_assets_manifest.sh` sobre a árvore real de assets e publicar o `Data/assets-manifest.txt` gerado.
+2. Publicar o `Data/assets-manifest.txt` gerado no servidor definitivo de assets.
 3. Definir política final para CRC obrigatório em produção (hoje está opcional via sidecar quando presente).
 4. Validar fluxo de 1ª execução em dispositivo real (download, extração de pacote e retomada após falha).

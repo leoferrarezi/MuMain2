@@ -29,7 +29,10 @@
 #include <sys/socket.h>
 #include <netdb.h>
 #include <unistd.h>
+#include <poll.h>
 #include <android/log.h>
+#include <jni.h>
+#include <android/native_activity.h>
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Basic types
@@ -271,6 +274,17 @@ inline HWND& AndroidCompatFocusedWindow()
 {
     static HWND s_focusedWindow = nullptr;
     return s_focusedWindow;
+}
+
+inline ANativeActivity*& AndroidCompatNativeActivity()
+{
+    static ANativeActivity* s_nativeActivity = nullptr;
+    return s_nativeActivity;
+}
+
+inline void AndroidCompatSetNativeActivity(ANativeActivity* activity)
+{
+    AndroidCompatNativeActivity() = activity;
 }
 
 void AndroidShowSoftKeyboard();
@@ -2354,103 +2368,350 @@ static inline std::vector<BYTE> AndroidHttpDecodeChunked(const BYTE* data, size_
     return std::vector<BYTE>();
 }
 
-static inline bool AndroidHttpFetch(const std::string& host,
-                                    INTERNET_PORT port,
-                                    const std::string& method,
-                                    const std::string& path,
-                                    int& outStatusCode,
-                                    size_t& outContentLength,
-                                    std::vector<BYTE>& outBody)
+static inline bool AndroidSetSocketTimeouts(int sock, int timeoutMs)
 {
-    outStatusCode = 0;
-    outContentLength = 0;
-    outBody.clear();
+    if (sock < 0 || timeoutMs <= 0)
+    {
+        return false;
+    }
 
-    if (host.empty())
+    struct timeval tv;
+    tv.tv_sec = timeoutMs / 1000;
+    tv.tv_usec = (timeoutMs % 1000) * 1000;
+
+    if (setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) != 0)
+    {
+        return false;
+    }
+    if (setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv)) != 0)
+    {
+        return false;
+    }
+    return true;
+}
+
+static inline bool AndroidConnectWithTimeout(int sock, const struct sockaddr* addr, socklen_t addrLen, int timeoutMs)
+{
+    if (sock < 0 || !addr || addrLen == 0)
     {
         errno = EINVAL;
         return false;
     }
 
-    struct addrinfo hints;
-    std::memset(&hints, 0, sizeof(hints));
-    hints.ai_family = AF_UNSPEC;
-    hints.ai_socktype = SOCK_STREAM;
+    const int oldFlags = fcntl(sock, F_GETFL, 0);
+    const bool hasFlags = (oldFlags >= 0);
+    if (hasFlags)
+    {
+        fcntl(sock, F_SETFL, oldFlags | O_NONBLOCK);
+    }
 
-    char portStr[16];
-    std::snprintf(portStr, sizeof(portStr), "%u", (unsigned)port);
+    int connectResult = connect(sock, addr, addrLen);
+    if (connectResult == 0)
+    {
+        if (hasFlags)
+        {
+            fcntl(sock, F_SETFL, oldFlags);
+        }
+        return true;
+    }
 
-    struct addrinfo* result = nullptr;
-    if (getaddrinfo(host.c_str(), portStr, &hints, &result) != 0 || !result)
+    if (errno != EINPROGRESS && errno != EWOULDBLOCK)
+    {
+        if (hasFlags)
+        {
+            fcntl(sock, F_SETFL, oldFlags);
+        }
+        return false;
+    }
+
+    struct pollfd pfd;
+    pfd.fd = sock;
+    pfd.events = POLLOUT;
+    pfd.revents = 0;
+
+    int pollResult = poll(&pfd, 1, timeoutMs);
+    if (pollResult <= 0)
+    {
+        if (pollResult == 0)
+        {
+            errno = ETIMEDOUT;
+        }
+        if (hasFlags)
+        {
+            fcntl(sock, F_SETFL, oldFlags);
+        }
+        return false;
+    }
+
+    int socketError = 0;
+    socklen_t socketErrorLen = (socklen_t)sizeof(socketError);
+    if (getsockopt(sock, SOL_SOCKET, SO_ERROR, &socketError, &socketErrorLen) != 0)
+    {
+        if (hasFlags)
+        {
+            fcntl(sock, F_SETFL, oldFlags);
+        }
+        return false;
+    }
+
+    if (socketError != 0)
+    {
+        errno = socketError;
+        if (hasFlags)
+        {
+            fcntl(sock, F_SETFL, oldFlags);
+        }
+        return false;
+    }
+
+    if (hasFlags)
+    {
+        fcntl(sock, F_SETFL, oldFlags);
+    }
+    return true;
+}
+
+static inline bool AndroidIsTransientNetworkError(int err)
+{
+    switch (err)
+    {
+    case EAGAIN:
+#if EWOULDBLOCK != EAGAIN
+    case EWOULDBLOCK:
+#endif
+    case EINTR:
+    case ETIMEDOUT:
+    case ECONNABORTED:
+    case ECONNRESET:
+    case ENETDOWN:
+    case ENETUNREACH:
+    case EHOSTUNREACH:
+    case EPIPE:
+        return true;
+    default:
+        return false;
+    }
+}
+
+static inline bool AndroidIsIPv4LiteralHost(const std::string& host)
+{
+    if (host.empty())
     {
         return false;
     }
 
-    int sock = -1;
-    for (struct addrinfo* it = result; it; it = it->ai_next)
+    int dots = 0;
+    for (char c : host)
     {
-        sock = (int)socket(it->ai_family, it->ai_socktype, it->ai_protocol);
-        if (sock < 0)
+        if (c == '.')
         {
+            ++dots;
             continue;
         }
-
-        if (connect(sock, it->ai_addr, it->ai_addrlen) == 0)
+        if (c < '0' || c > '9')
         {
-            break;
+            return false;
         }
-
-        close(sock);
-        sock = -1;
     }
-    freeaddrinfo(result);
+    return (dots == 3);
+}
 
-    if (sock < 0)
+static inline bool AndroidJavaHttpFetch(const std::string& host,
+                                        INTERNET_PORT port,
+                                        const std::string& method,
+                                        const std::string& path,
+                                        int& outStatusCode,
+                                        size_t& outContentLength,
+                                        std::vector<BYTE>& outBody,
+                                        bool* outHandled)
+{
+    if (outHandled)
+    {
+        *outHandled = false;
+    }
+
+    if (method != "GET")
     {
         return false;
     }
 
-    const std::string reqPath = path.empty() ? "/" : path;
-    std::string request =
-        method + " " + reqPath + " HTTP/1.1\r\n" +
-        "Host: " + host + "\r\n" +
-        "Connection: close\r\n" +
-        "User-Agent: MuAndroid/1.0\r\n" +
-        "Accept: */*\r\n\r\n";
-
-    size_t sent = 0;
-    while (sent < request.size())
+    ANativeActivity* activity = AndroidCompatNativeActivity();
+    if (!activity || !activity->vm || !activity->clazz)
     {
-        ssize_t n = send(sock, request.data() + sent, request.size() - sent, 0);
-        if (n <= 0)
+        return false;
+    }
+
+    JNIEnv* env = nullptr;
+    bool attached = false;
+    if (activity->vm->GetEnv((void**)&env, JNI_VERSION_1_6) != JNI_OK)
+    {
+        if (activity->vm->AttachCurrentThread(&env, nullptr) != JNI_OK || !env)
         {
-            close(sock);
             return false;
         }
-        sent += (size_t)n;
+        attached = true;
+    }
+
+    bool ok = false;
+    if (outHandled)
+    {
+        *outHandled = true;
+    }
+
+    jclass cls = env->GetObjectClass(activity->clazz);
+    if (cls)
+    {
+        jmethodID fetchMethod = env->GetMethodID(cls, "httpGetBytes", "(Ljava/lang/String;)[B");
+        jmethodID statusMethod = env->GetMethodID(cls, "getLastHttpStatusCode", "()I");
+        if (fetchMethod && statusMethod)
+        {
+            std::string fullUrl = "http://" + host;
+            if (port != INTERNET_DEFAULT_HTTP_PORT)
+            {
+                fullUrl += ":";
+                fullUrl += std::to_string((unsigned long long)port);
+            }
+
+            if (path.empty())
+            {
+                fullUrl += "/";
+            }
+            else if (path[0] != '/')
+            {
+                fullUrl += "/";
+                fullUrl += path;
+            }
+            else
+            {
+                fullUrl += path;
+            }
+
+            jstring jurl = env->NewStringUTF(fullUrl.c_str());
+            if (jurl)
+            {
+                jbyteArray jbytes = (jbyteArray)env->CallObjectMethod(activity->clazz, fetchMethod, jurl);
+                outStatusCode = (int)env->CallIntMethod(activity->clazz, statusMethod);
+
+                if (jbytes)
+                {
+                    jsize len = env->GetArrayLength(jbytes);
+                    outBody.clear();
+                    if (len > 0)
+                    {
+                        outBody.resize((size_t)len);
+                        env->GetByteArrayRegion(jbytes, 0, len, (jbyte*)outBody.data());
+                    }
+                    outContentLength = outBody.size();
+                    ok = (outStatusCode >= 200 && outStatusCode < 300);
+                    env->DeleteLocalRef(jbytes);
+                }
+                else
+                {
+                    outBody.clear();
+                    outContentLength = 0;
+                }
+
+                env->DeleteLocalRef(jurl);
+            }
+        }
+        else
+        {
+            if (outHandled)
+            {
+                *outHandled = false;
+            }
+        }
+        env->DeleteLocalRef(cls);
+    }
+
+    if (env->ExceptionCheck())
+    {
+        env->ExceptionClear();
+        ok = false;
+    }
+
+    if (attached)
+    {
+        activity->vm->DetachCurrentThread();
+    }
+
+    return ok;
+}
+
+static inline std::string AndroidShellEscapeDoubleQuoted(const std::string& value)
+{
+    std::string out;
+    out.reserve(value.size() + 8);
+    for (char c : value)
+    {
+        if (c == '\\' || c == '"' || c == '$' || c == '`')
+        {
+            out.push_back('\\');
+        }
+        out.push_back(c);
+    }
+    return out;
+}
+
+static inline bool AndroidHttpFetchViaNetcat(const std::string& host,
+                                             INTERNET_PORT port,
+                                             const std::string& method,
+                                             const std::string& path,
+                                             int& outStatusCode,
+                                             size_t& outContentLength,
+                                             std::vector<BYTE>& outBody)
+{
+    if (method != "GET" || host.empty())
+    {
+        return false;
+    }
+
+    std::string reqPath = path.empty() ? "/" : path;
+    if (reqPath[0] != '/')
+    {
+        reqPath = "/" + reqPath;
+    }
+
+    const std::string escapedPath = AndroidShellEscapeDoubleQuoted(reqPath);
+    const std::string escapedHost = AndroidShellEscapeDoubleQuoted(host);
+
+    char portText[16];
+    std::snprintf(portText, sizeof(portText), "%u", (unsigned)port);
+
+    std::string command =
+        "printf \"GET " + escapedPath +
+        " HTTP/1.1\\r\\nHost: " + escapedHost +
+        "\\r\\nConnection: close\\r\\nUser-Agent: MuAndroid/1.0\\r\\nAccept: */*\\r\\n\\r\\n\" | "
+        "nc -4 -n -w 20 -W 20 " + escapedHost + " " + portText;
+
+    FILE* pipe = popen(command.c_str(), "r");
+    if (!pipe)
+    {
+        return false;
     }
 
     std::vector<BYTE> response;
     BYTE chunk[8192];
-    for (;;)
+    while (true)
     {
-        ssize_t n = recv(sock, chunk, sizeof(chunk), 0);
-        if (n < 0)
+        size_t n = fread(chunk, 1, sizeof(chunk), pipe);
+        if (n > 0)
         {
-            close(sock);
-            return false;
+            response.insert(response.end(), chunk, chunk + n);
         }
-        if (n == 0)
+
+        if (n < sizeof(chunk))
         {
-            break;
+            if (feof(pipe) || ferror(pipe))
+            {
+                break;
+            }
         }
-        response.insert(response.end(), chunk, chunk + n);
     }
-    close(sock);
+    pclose(pipe);
 
     if (response.empty())
     {
-        errno = EIO;
         return false;
     }
 
@@ -2466,7 +2727,6 @@ static inline bool AndroidHttpFetch(const std::string& host,
     }
     if (headerEnd == std::string::npos)
     {
-        errno = EPROTO;
         return false;
     }
 
@@ -2474,6 +2734,7 @@ static inline bool AndroidHttpFetch(const std::string& host,
     size_t firstLineEnd = headers.find("\r\n");
     std::string statusLine = (firstLineEnd == std::string::npos) ? headers : headers.substr(0, firstLineEnd);
 
+    outStatusCode = 500;
     size_t firstSpace = statusLine.find(' ');
     size_t secondSpace = (firstSpace == std::string::npos) ? std::string::npos : statusLine.find(' ', firstSpace + 1);
     if (firstSpace != std::string::npos)
@@ -2483,12 +2744,8 @@ static inline bool AndroidHttpFetch(const std::string& host,
             : statusLine.substr(firstSpace + 1, secondSpace - firstSpace - 1);
         outStatusCode = std::atoi(code.c_str());
     }
-    if (outStatusCode <= 0)
-    {
-        outStatusCode = 500;
-    }
 
-    bool chunked = false;
+    outContentLength = 0;
     size_t cursor = (firstLineEnd == std::string::npos) ? headers.size() : firstLineEnd + 2;
     while (cursor < headers.size())
     {
@@ -2509,40 +2766,523 @@ static inline bool AndroidHttpFetch(const std::string& host,
 
         std::string name = AndroidHttpLower(AndroidHttpTrim(line.substr(0, sep)));
         std::string value = AndroidHttpTrim(line.substr(sep + 1));
-
         if (name == "content-length")
         {
             outContentLength = (size_t)std::strtoull(value.c_str(), nullptr, 10);
         }
-        else if (name == "transfer-encoding")
-        {
-            std::string lowerValue = AndroidHttpLower(value);
-            if (lowerValue.find("chunked") != std::string::npos)
-            {
-                chunked = true;
-            }
-        }
     }
 
-    const BYTE* bodyStart = response.data() + headerEnd + 4;
-    size_t bodySize = response.size() - (headerEnd + 4);
-    if (chunked)
+    const size_t bodyOffset = headerEnd + 4;
+    size_t bodySize = (response.size() > bodyOffset) ? (response.size() - bodyOffset) : 0;
+    if (outContentLength > 0 && bodySize > outContentLength)
     {
-        std::vector<BYTE> decoded = AndroidHttpDecodeChunked(bodyStart, bodySize);
-        if (!decoded.empty())
-        {
-            outBody.swap(decoded);
-            outContentLength = outBody.size();
-            return true;
-        }
+        bodySize = outContentLength;
     }
 
-    outBody.assign(bodyStart, bodyStart + bodySize);
+    outBody.assign(response.begin() + (std::ptrdiff_t)bodyOffset,
+                   response.begin() + (std::ptrdiff_t)(bodyOffset + bodySize));
     if (outContentLength == 0)
     {
         outContentLength = outBody.size();
     }
-    return true;
+
+    return (outStatusCode >= 200 && outStatusCode < 300);
+}
+
+static inline bool AndroidHttpFetch(const std::string& host,
+                                    INTERNET_PORT port,
+                                    const std::string& method,
+                                    const std::string& path,
+                                    int& outStatusCode,
+                                    size_t& outContentLength,
+                                    std::vector<BYTE>& outBody)
+{
+    outStatusCode = 0;
+    outContentLength = 0;
+    outBody.clear();
+
+    if (host.empty())
+    {
+        errno = EINVAL;
+        return false;
+    }
+
+    // NOTE: Java/shell transport experiments are intentionally kept disabled.
+    // The current stable path remains the native socket implementation below.
+
+    static const int k_ioTimeoutMs = 120000;
+    static const int k_maxAttempts = 4;
+
+    const std::string reqPath = path.empty() ? "/" : path;
+    int lastErr = EIO;
+    std::vector<BYTE> resumedBody;
+    size_t resumedExpectedLength = 0;
+    bool resumedHasExpectedLength = false;
+
+    for (int attempt = 1; attempt <= k_maxAttempts; ++attempt)
+    {
+        bool retryable = false;
+        const size_t resumeOffset = resumedBody.size();
+
+        struct addrinfo hints;
+        std::memset(&hints, 0, sizeof(hints));
+        if (AndroidIsIPv4LiteralHost(host))
+        {
+            hints.ai_family = AF_INET;
+            hints.ai_flags = AI_NUMERICHOST;
+        }
+        else
+        {
+            hints.ai_family = AF_UNSPEC;
+        }
+        hints.ai_socktype = SOCK_STREAM;
+
+        char portStr[16];
+        std::snprintf(portStr, sizeof(portStr), "%u", (unsigned)port);
+
+        struct addrinfo* result = nullptr;
+        if (getaddrinfo(host.c_str(), portStr, &hints, &result) != 0 || !result)
+        {
+            lastErr = EHOSTUNREACH;
+            retryable = true;
+            errno = lastErr;
+            if (result)
+            {
+                freeaddrinfo(result);
+            }
+            if (attempt < k_maxAttempts && retryable)
+            {
+                Sleep((DWORD)(attempt * 300));
+                continue;
+            }
+            return false;
+        }
+
+        int sock = -1;
+        int connectErr = ETIMEDOUT;
+        for (struct addrinfo* it = result; it; it = it->ai_next)
+        {
+            sock = (int)socket(it->ai_family, it->ai_socktype, it->ai_protocol);
+            if (sock < 0)
+            {
+                connectErr = (errno != 0) ? errno : EIO;
+                continue;
+            }
+
+            if (connect(sock, it->ai_addr, (socklen_t)it->ai_addrlen) == 0)
+            {
+                connectErr = 0;
+                break;
+            }
+
+            connectErr = (errno != 0) ? errno : ETIMEDOUT;
+            close(sock);
+            sock = -1;
+        }
+        freeaddrinfo(result);
+
+        if (sock < 0)
+        {
+            lastErr = (connectErr != 0) ? connectErr : ETIMEDOUT;
+            retryable = AndroidIsTransientNetworkError(lastErr);
+            errno = lastErr;
+            if (attempt < k_maxAttempts && retryable)
+            {
+                Sleep((DWORD)(attempt * 300));
+                continue;
+            }
+            return false;
+        }
+
+        std::string hostHeader = host;
+        if (port != INTERNET_DEFAULT_HTTP_PORT)
+        {
+            char hostPort[32];
+            std::snprintf(hostPort, sizeof(hostPort), ":%u", (unsigned)port);
+            hostHeader += hostPort;
+        }
+
+        std::string request =
+            method + " " + reqPath + " HTTP/1.0\r\n" +
+            "Host: " + hostHeader + "\r\n" +
+            "Connection: close\r\n" +
+            "User-Agent: MuAndroid/1.0\r\n" +
+            ((resumeOffset > 0) ? ("Range: bytes=" + std::to_string((unsigned long long)resumeOffset) + "-\r\n") : "") +
+            "Accept-Encoding: identity\r\n" +
+            "Accept: */*\r\n\r\n";
+
+        size_t sent = 0;
+        bool sendOk = true;
+        while (sent < request.size())
+        {
+            ssize_t n = send(sock, request.data() + sent, request.size() - sent, 0);
+            if (n < 0)
+            {
+                if (errno == EINTR)
+                {
+                    continue;
+                }
+
+                sendOk = false;
+                break;
+            }
+            if (n == 0)
+            {
+                sendOk = false;
+                errno = EPIPE;
+                break;
+            }
+            sent += (size_t)n;
+        }
+
+        if (!sendOk)
+        {
+            lastErr = (errno != 0) ? errno : EPIPE;
+            retryable = AndroidIsTransientNetworkError(lastErr);
+            close(sock);
+            errno = lastErr;
+            if (attempt < k_maxAttempts && retryable)
+            {
+                Sleep((DWORD)(attempt * 300));
+                continue;
+            }
+            return false;
+        }
+
+        std::vector<BYTE> response;
+        response.reserve(8192);
+
+        size_t headerEnd = std::string::npos;
+        bool headerParsed = false;
+        bool headerChunked = false;
+        bool headerHasContentLength = false;
+        size_t headerContentLength = 0;
+
+        BYTE chunk[8192];
+        bool recvOk = true;
+        for (;;)
+        {
+            struct pollfd pfd;
+            pfd.fd = sock;
+            pfd.events = POLLIN;
+            pfd.revents = 0;
+
+            int pollResult = poll(&pfd, 1, k_ioTimeoutMs);
+            if (pollResult < 0)
+            {
+                if (errno == EINTR)
+                {
+                    continue;
+                }
+                recvOk = false;
+                break;
+            }
+            if (pollResult == 0)
+            {
+                errno = ETIMEDOUT;
+                recvOk = false;
+                break;
+            }
+
+            if ((pfd.revents & (POLLERR | POLLHUP | POLLNVAL)) != 0 && (pfd.revents & POLLIN) == 0)
+            {
+                int soError = 0;
+                socklen_t soErrorLen = (socklen_t)sizeof(soError);
+                if (getsockopt(sock, SOL_SOCKET, SO_ERROR, &soError, &soErrorLen) == 0 && soError != 0)
+                {
+                    errno = soError;
+                }
+                else if (errno == 0)
+                {
+                    errno = ECONNABORTED;
+                }
+                recvOk = false;
+                break;
+            }
+
+            ssize_t n = recv(sock, chunk, sizeof(chunk), 0);
+            if (n < 0)
+            {
+                if (errno == EINTR)
+                {
+                    continue;
+                }
+                if (errno == EAGAIN || errno == EWOULDBLOCK)
+                {
+                    errno = ETIMEDOUT;
+                }
+                __android_log_print(ANDROID_LOG_ERROR,
+                                    "MUAssets",
+                                    "AndroidHttpFetch recv error: host=%s path=%s errno=%d bytes=%zu headerParsed=%d hasLen=%d len=%zu",
+                                    host.c_str(),
+                                    reqPath.c_str(),
+                                    errno,
+                                    response.size(),
+                                    headerParsed ? 1 : 0,
+                                    headerHasContentLength ? 1 : 0,
+                                    headerContentLength);
+                recvOk = false;
+                break;
+            }
+            if (n == 0)
+            {
+                break;
+            }
+
+            response.insert(response.end(), chunk, chunk + n);
+
+            if (!headerParsed)
+            {
+                for (size_t i = 0; i + 3 < response.size(); ++i)
+                {
+                    if (response[i] == '\r' && response[i + 1] == '\n' &&
+                        response[i + 2] == '\r' && response[i + 3] == '\n')
+                    {
+                        headerEnd = i;
+                        headerParsed = true;
+                        break;
+                    }
+                }
+
+                if (headerParsed)
+                {
+                    std::string headers((const char*)response.data(), headerEnd);
+                    size_t firstLineEnd = headers.find("\r\n");
+                    size_t cursor = (firstLineEnd == std::string::npos) ? headers.size() : firstLineEnd + 2;
+                    while (cursor < headers.size())
+                    {
+                        size_t lineEnd = headers.find("\r\n", cursor);
+                        std::string line = (lineEnd == std::string::npos) ? headers.substr(cursor) : headers.substr(cursor, lineEnd - cursor);
+                        cursor = (lineEnd == std::string::npos) ? headers.size() : lineEnd + 2;
+
+                        if (line.empty())
+                        {
+                            continue;
+                        }
+
+                        size_t sep = line.find(':');
+                        if (sep == std::string::npos)
+                        {
+                            continue;
+                        }
+
+                        std::string name = AndroidHttpLower(AndroidHttpTrim(line.substr(0, sep)));
+                        std::string value = AndroidHttpTrim(line.substr(sep + 1));
+                        if (name == "content-length")
+                        {
+                            headerHasContentLength = true;
+                            headerContentLength = (size_t)std::strtoull(value.c_str(), nullptr, 10);
+                        }
+                        else if (name == "transfer-encoding")
+                        {
+                            std::string lowerValue = AndroidHttpLower(value);
+                            if (lowerValue.find("chunked") != std::string::npos)
+                            {
+                                headerChunked = true;
+                            }
+                        }
+                    }
+
+                    if (headerHasContentLength && !headerChunked)
+                    {
+                        response.reserve((headerEnd + 4) + headerContentLength);
+                    }
+                }
+            }
+
+            if (headerParsed && !headerChunked && headerHasContentLength)
+            {
+                const size_t bodyOffset = headerEnd + 4;
+                if (response.size() >= bodyOffset)
+                {
+                    const size_t bodySize = response.size() - bodyOffset;
+                    if (bodySize >= headerContentLength)
+                    {
+                        break;
+                    }
+                }
+            }
+        }
+        close(sock);
+
+        if (!recvOk)
+        {
+            if (headerParsed && headerEnd != std::string::npos && !headerChunked && headerHasContentLength)
+            {
+                const size_t bodyOffset = headerEnd + 4;
+                if (response.size() > bodyOffset)
+                {
+                    const size_t partialBytes = response.size() - bodyOffset;
+                    if (partialBytes > 0)
+                    {
+                        if (!resumedHasExpectedLength)
+                        {
+                            resumedHasExpectedLength = true;
+                            resumedExpectedLength = resumeOffset + headerContentLength;
+                        }
+                        resumedBody.insert(resumedBody.end(),
+                                          response.begin() + (std::ptrdiff_t)bodyOffset,
+                                          response.end());
+                        if (resumedHasExpectedLength && resumedBody.size() >= resumedExpectedLength)
+                        {
+                            outBody.swap(resumedBody);
+                            outContentLength = outBody.size();
+                            outStatusCode = 200;
+                            return true;
+                        }
+                    }
+                }
+            }
+
+            lastErr = (errno != 0) ? errno : ETIMEDOUT;
+            retryable = AndroidIsTransientNetworkError(lastErr);
+            errno = lastErr;
+            if (attempt < k_maxAttempts && retryable)
+            {
+                Sleep((DWORD)(attempt * 300));
+                continue;
+            }
+            return false;
+        }
+
+        if (response.empty())
+        {
+            lastErr = EIO;
+            retryable = true;
+            errno = lastErr;
+            if (attempt < k_maxAttempts && retryable)
+            {
+                Sleep((DWORD)(attempt * 300));
+                continue;
+            }
+            return false;
+        }
+
+        if (headerEnd == std::string::npos)
+        {
+            for (size_t i = 0; i + 3 < response.size(); ++i)
+            {
+                if (response[i] == '\r' && response[i + 1] == '\n' &&
+                    response[i + 2] == '\r' && response[i + 3] == '\n')
+                {
+                    headerEnd = i;
+                    break;
+                }
+            }
+        }
+        if (headerEnd == std::string::npos)
+        {
+            lastErr = EPROTO;
+            errno = lastErr;
+            return false;
+        }
+
+        std::string headers((const char*)response.data(), headerEnd);
+        size_t firstLineEnd = headers.find("\r\n");
+        std::string statusLine = (firstLineEnd == std::string::npos) ? headers : headers.substr(0, firstLineEnd);
+
+        size_t firstSpace = statusLine.find(' ');
+        size_t secondSpace = (firstSpace == std::string::npos) ? std::string::npos : statusLine.find(' ', firstSpace + 1);
+        if (firstSpace != std::string::npos)
+        {
+            std::string code = (secondSpace == std::string::npos)
+                ? statusLine.substr(firstSpace + 1)
+                : statusLine.substr(firstSpace + 1, secondSpace - firstSpace - 1);
+            outStatusCode = std::atoi(code.c_str());
+        }
+        if (outStatusCode <= 0)
+        {
+            outStatusCode = 500;
+        }
+
+        bool chunked = false;
+        size_t cursor = (firstLineEnd == std::string::npos) ? headers.size() : firstLineEnd + 2;
+        while (cursor < headers.size())
+        {
+            size_t lineEnd = headers.find("\r\n", cursor);
+            std::string line = (lineEnd == std::string::npos) ? headers.substr(cursor) : headers.substr(cursor, lineEnd - cursor);
+            cursor = (lineEnd == std::string::npos) ? headers.size() : lineEnd + 2;
+
+            if (line.empty())
+            {
+                continue;
+            }
+
+            size_t sep = line.find(':');
+            if (sep == std::string::npos)
+            {
+                continue;
+            }
+
+            std::string name = AndroidHttpLower(AndroidHttpTrim(line.substr(0, sep)));
+            std::string value = AndroidHttpTrim(line.substr(sep + 1));
+
+            if (name == "content-length")
+            {
+                outContentLength = (size_t)std::strtoull(value.c_str(), nullptr, 10);
+            }
+            else if (name == "transfer-encoding")
+            {
+                std::string lowerValue = AndroidHttpLower(value);
+                if (lowerValue.find("chunked") != std::string::npos)
+                {
+                    chunked = true;
+                }
+            }
+        }
+
+        const BYTE* bodyStart = response.data() + headerEnd + 4;
+        size_t bodySize = response.size() - (headerEnd + 4);
+        std::vector<BYTE> currentBody;
+        if (chunked)
+        {
+            std::vector<BYTE> decoded = AndroidHttpDecodeChunked(bodyStart, bodySize);
+            if (!decoded.empty())
+            {
+                currentBody.swap(decoded);
+            }
+            else
+            {
+                currentBody.assign(bodyStart, bodyStart + bodySize);
+            }
+        }
+        else
+        {
+            currentBody.assign(bodyStart, bodyStart + bodySize);
+        }
+
+        if (!resumedBody.empty() && outStatusCode == 206)
+        {
+            resumedBody.insert(resumedBody.end(), currentBody.begin(), currentBody.end());
+            if (resumedHasExpectedLength && resumedBody.size() < resumedExpectedLength)
+            {
+                if (attempt < k_maxAttempts)
+                {
+                    Sleep((DWORD)(attempt * 300));
+                    continue;
+                }
+            }
+            outBody.swap(resumedBody);
+            outContentLength = outBody.size();
+            return true;
+        }
+
+        if (!resumedBody.empty() && outStatusCode == 200)
+        {
+            resumedBody.clear();
+            resumedHasExpectedLength = false;
+        }
+
+        outBody.swap(currentBody);
+        if (outContentLength == 0)
+        {
+            outContentLength = outBody.size();
+        }
+        return true;
+    }
+
+    errno = lastErr;
+    return false;
 }
 
 static inline HINTERNET InternetOpen(const char* agent, DWORD, const char*, const char*, DWORD)
@@ -2632,6 +3372,13 @@ static inline BOOL HttpSendRequest(HINTERNET hRequest, const char*, DWORD, LPVOI
 
     if (!AndroidHttpFetch(req->host, req->port, req->method, req->path, req->statusCode, req->contentLength, req->body))
     {
+        __android_log_print(ANDROID_LOG_ERROR,
+                            "MUAssets",
+                            "AndroidHttpFetch failed: host=%s port=%u path=%s errno=%d",
+                            req->host.c_str(),
+                            (unsigned)req->port,
+                            req->path.c_str(),
+                            errno);
         return FALSE;
     }
 

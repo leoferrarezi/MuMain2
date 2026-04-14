@@ -28,8 +28,12 @@ FileDownloader::FileDownloader(IDownloaderStateEvent* pStateEvent,
     this->m_pServerInfo = pServerInfo;
     this->m_pFileInfo = pFileInfo;
     this->m_pConnecter = 0;
+    this->m_hSession = 0;
+    this->m_hConnection = 0;
+    this->m_hRemoteFile = 0;
     this->m_hLocalFile = INVALID_HANDLE_VALUE;
     this->m_nFileLength = 0;
+    this->m_Result.SetSuccessResult();
 }
 
 FileDownloader::~FileDownloader() // OK
@@ -48,6 +52,11 @@ WZResult FileDownloader::DownloadFile() // OK
     this->m_nFileLength = 0;
     this->Release();
     this->m_pConnecter = this->CreateConnecter();
+    if(this->m_pConnecter==0)
+    {
+        this->m_Result.SetResult(DL_EXCEPTION,0,"[FileDownloader::DownloadFile] Fail : CreateConnecter, FileName = %s",this->m_pFileInfo->GetRemoteFilePath());
+        goto JUMP_END;
+    }
     this->m_Result=this->m_pConnecter->CreateSession(this->m_hSession);
 
     if(!this->CanBeContinue())

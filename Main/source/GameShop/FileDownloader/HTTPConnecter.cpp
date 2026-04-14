@@ -74,7 +74,11 @@ WZResult		HTTPConnecter::OpenRemoteFile(HINTERNET& hConnection,
 
 	if(hRemoteFile)
 	{
-		HttpSendRequest(hRemoteFile,0,0,0,0);
+		if(!HttpSendRequest(hRemoteFile,0,0,0,0))
+		{
+			this->m_Result.SetResult(DL_OPEN_REMOTEFILE,GetLastError(),"[HTTPConnecter::OpenRemoteFile] Fail : HttpSendRequest, FileName = %s",this->m_pFileInfo->GetRemoteFilePath());
+			return this->m_Result;
+		}
 
 		char buffer[32];
 
@@ -84,10 +88,11 @@ WZResult		HTTPConnecter::OpenRemoteFile(HINTERNET& hConnection,
 
 		if(HttpQueryInfo(hRemoteFile,HTTP_QUERY_STATUS_CODE,buffer,&dwBufferLength,0))
 		{
-			if(_atoi64(buffer)==HTTP_STATUS_OK)
-			{
-				memset(buffer,0,sizeof(buffer));
-				dwBufferLength = 32;
+				const long long statusCode = _atoi64(buffer);
+				if(statusCode >= 200 && statusCode < 300)
+				{
+					memset(buffer,0,sizeof(buffer));
+					dwBufferLength = 32;
 
 				if(HttpQueryInfo(hRemoteFile,HTTP_QUERY_CONTENT_LENGTH,buffer,&dwBufferLength,0))
 				{
@@ -98,11 +103,11 @@ WZResult		HTTPConnecter::OpenRemoteFile(HINTERNET& hConnection,
 				{
 					this->m_Result.SetResult(DL_GET_FILE_LENGTH,GetLastError(),"[HTTPConnecter::OpenRemoteFile] Fail : HttpQueryInfo - HTTP_QUERY_CONTENT_LENGTH, FileName = %s",this->m_pFileInfo->GetRemoteFilePath());
 				}
-			}
-			else
-			{
-				this->m_Result.SetResult(DL_HTTP_STATUS_NOT_OK,0,"[HTTPConnecter::OpenRemoteFile] Fail : Not HTTP_STATUS_OK, FileName = %s",this->m_pFileInfo->GetRemoteFilePath());
-			}
+				}
+				else
+				{
+					this->m_Result.SetResult(DL_HTTP_STATUS_NOT_OK,0,"[HTTPConnecter::OpenRemoteFile] Fail : HTTP status=%lld, FileName = %s",statusCode,this->m_pFileInfo->GetRemoteFilePath());
+				}
 		}
 		else
 		{
