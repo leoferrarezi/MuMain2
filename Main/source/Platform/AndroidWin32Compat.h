@@ -3515,13 +3515,17 @@ static inline bool _AndroidINI_FindKey(
     const char* section, const char* key, const char* filename,
     char* outBuf, int outLen)
 {
-    // Resolve path through GameAssetPath (handles backslash → forward slash)
-    std::string fullPath;
-    if (filename && filename[0] == '.')
-        fullPath = GameAssetPath::Resolve(filename + 2); // strip leading ".\"
-    else if (filename)
-        fullPath = GameAssetPath::Resolve(filename);
-    else
+    auto resolveIniPath = [](const char* path) -> std::string
+    {
+        if (!path || !path[0])
+            return std::string();
+        if ((path[0] == '.') && (path[1] == '\\' || path[1] == '/'))
+            return GameAssetPath::Resolve(path + 2);
+        return GameAssetPath::Resolve(path);
+    };
+
+    std::string fullPath = resolveIniPath(filename);
+    if (fullPath.empty())
         return false;
 
     FILE* f = fopen(fullPath.c_str(), "r");
@@ -3606,10 +3610,165 @@ inline DWORD GetPrivateProfileString(
 }
 
 inline BOOL WritePrivateProfileString(
-    const char* /*section*/, const char* /*key*/, const char* /*value*/, const char* /*filename*/)
+    const char* section, const char* key, const char* value, const char* filename)
 {
-    // TODO: implement write-back if config persistence is needed
-    return TRUE; // no-op
+    if (!section || !filename || !filename[0])
+        return FALSE;
+
+    auto resolveIniPath = [](const char* path) -> std::string
+    {
+        if (!path || !path[0])
+            return std::string();
+        if ((path[0] == '.') && (path[1] == '\\' || path[1] == '/'))
+            return GameAssetPath::Resolve(path + 2);
+        return GameAssetPath::Resolve(path);
+    };
+
+    auto trim = [](const std::string& text) -> std::string
+    {
+        size_t begin = 0;
+        while (begin < text.size() && (text[begin] == ' ' || text[begin] == '\t'))
+            ++begin;
+        size_t end = text.size();
+        while (end > begin && (text[end - 1] == ' ' || text[end - 1] == '\t'))
+            --end;
+        return text.substr(begin, end - begin);
+    };
+
+    auto iequals = [](const std::string& a, const char* b) -> bool
+    {
+        if (!b)
+            return false;
+        return strcasecmp(a.c_str(), b) == 0;
+    };
+
+    auto parseSection = [&](const std::string& raw, std::string& outSection) -> bool
+    {
+        std::string t = trim(raw);
+        if (t.size() < 3 || t[0] != '[')
+            return false;
+        const size_t close = t.find(']');
+        if (close == std::string::npos || close <= 1)
+            return false;
+        outSection = trim(t.substr(1, close - 1));
+        return !outSection.empty();
+    };
+
+    auto parseKey = [&](const std::string& raw, std::string& outKey) -> bool
+    {
+        std::string t = trim(raw);
+        if (t.empty() || t[0] == ';' || t[0] == '#')
+            return false;
+        const size_t eq = t.find('=');
+        if (eq == std::string::npos)
+            return false;
+        outKey = trim(t.substr(0, eq));
+        return !outKey.empty();
+    };
+
+    std::string fullPath = resolveIniPath(filename);
+    if (fullPath.empty())
+        return FALSE;
+
+    std::vector<std::string> lines;
+    {
+        FILE* in = fopen(fullPath.c_str(), "r");
+        if (in)
+        {
+            char buffer[1024];
+            while (fgets(buffer, sizeof(buffer), in))
+            {
+                size_t len = strlen(buffer);
+                while (len > 0 && (buffer[len - 1] == '\n' || buffer[len - 1] == '\r'))
+                    buffer[--len] = '\0';
+                lines.emplace_back(buffer);
+            }
+            fclose(in);
+        }
+    }
+
+    const bool removeSection = (!key && !value);
+    const bool removeKey = (key && !value);
+
+    int sectionStart = -1;
+    int sectionEnd = static_cast<int>(lines.size());
+    for (int i = 0; i < static_cast<int>(lines.size()); ++i)
+    {
+        std::string currentSection;
+        if (!parseSection(lines[i], currentSection))
+            continue;
+        if (sectionStart >= 0)
+        {
+            sectionEnd = i;
+            break;
+        }
+        if (iequals(currentSection, section))
+            sectionStart = i;
+    }
+
+    if (removeSection)
+    {
+        if (sectionStart < 0)
+            return TRUE;
+        lines.erase(lines.begin() + sectionStart, lines.begin() + sectionEnd);
+    }
+    else
+    {
+        if (!key || !key[0])
+            return FALSE;
+
+        int keyLine = -1;
+        if (sectionStart >= 0)
+        {
+            for (int i = sectionStart + 1; i < sectionEnd; ++i)
+            {
+                std::string currentKey;
+                if (!parseKey(lines[i], currentKey))
+                    continue;
+                if (iequals(currentKey, key))
+                {
+                    keyLine = i;
+                    break;
+                }
+            }
+        }
+
+        if (removeKey)
+        {
+            if (keyLine >= 0)
+                lines.erase(lines.begin() + keyLine);
+        }
+        else
+        {
+            const std::string newLine = std::string(key) + "=" + (value ? value : "");
+            if (sectionStart < 0)
+            {
+                if (!lines.empty() && !trim(lines.back()).empty())
+                    lines.emplace_back("");
+                lines.emplace_back(std::string("[") + section + "]");
+                lines.emplace_back(newLine);
+            }
+            else if (keyLine >= 0)
+            {
+                lines[keyLine] = newLine;
+            }
+            else
+            {
+                lines.insert(lines.begin() + sectionEnd, newLine);
+            }
+        }
+    }
+
+    FILE* out = fopen(fullPath.c_str(), "w");
+    if (!out)
+        return FALSE;
+    for (const std::string& line : lines)
+    {
+        fputs(line.c_str(), out);
+        fputc('\n', out);
+    }
+    fclose(out);
+    return TRUE;
 }
 
 #define GetPrivateProfileIntA      GetPrivateProfileInt

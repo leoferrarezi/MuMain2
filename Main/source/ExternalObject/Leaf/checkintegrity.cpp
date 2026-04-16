@@ -1,5 +1,4 @@
 
-#ifndef __ANDROID__  // PE integrity checks not applicable on Android
 #define WIN32_LEAN_AND_MEAN		// Exclude rarely-used stuff from Windows headers
 
 #include "stdafx.h"
@@ -516,5 +515,3 @@ crc32loop:
 		mov [eax], ecx				// Write the result
 	}
 }
-
-#endif // !__ANDROID__

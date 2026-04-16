@@ -2465,7 +2465,7 @@ int SEASON3B::CNewUIMacroMain::GetSkillListOffset()
 /*
 void SEASON3B::CNewUIMacroMain::ClearMap(MAPE_CHECKBOX& map)
 {
-	for (MAPE_CHECKBOX::iterator& pair = map.begin(); pair != map.end(); pair++)
+	for (MAPE_CHECKBOX::iterator pair = map.begin(); pair != map.end(); pair++)
 	{
 		SAFE_DELETE(pair->second);
 	}
@@ -2474,7 +2474,7 @@ void SEASON3B::CNewUIMacroMain::ClearMap(MAPE_CHECKBOX& map)
 
 void SEASON3B::CNewUIMacroMain::ClearMap(MAPE_BTNGROUP& map)
 {
-	for (MAPE_BTNGROUP::iterator& pair = map.begin(); pair != map.end(); pair++)
+	for (MAPE_BTNGROUP::iterator pair = map.begin(); pair != map.end(); pair++)
 	{
 		SAFE_DELETE(pair->second); // Libera la memoria apuntada
 	}
@@ -2483,7 +2483,7 @@ void SEASON3B::CNewUIMacroMain::ClearMap(MAPE_BTNGROUP& map)
 
 void SEASON3B::CNewUIMacroMain::ClearMap(MAPE_TXTINPUT& map)
 {
-	for (MAPE_TXTINPUT::iterator& pair = map.begin(); pair != map.end(); pair++)
+	for (MAPE_TXTINPUT::iterator pair = map.begin(); pair != map.end(); pair++)
 	{
 		SAFE_DELETE(pair->second); // Libera la memoria apuntada
 	}
@@ -2492,7 +2492,7 @@ void SEASON3B::CNewUIMacroMain::ClearMap(MAPE_TXTINPUT& map)
 
 void SEASON3B::CNewUIMacroMain::ClearMap(MAPE_BUTTON& map)
 {
-	for (MAPE_BUTTON::iterator& pair = map.begin(); pair != map.end(); pair++)
+	for (MAPE_BUTTON::iterator pair = map.begin(); pair != map.end(); pair++)
 	{
 		SAFE_DELETE(pair->second); // Libera la memoria apuntada
 	}
@@ -2501,7 +2501,7 @@ void SEASON3B::CNewUIMacroMain::ClearMap(MAPE_BUTTON& map)
 
 void SEASON3B::CNewUIMacroMain::ClearMap(MAPE_MACROTXT& map)
 {
-	for (MAPE_MACROTXT::iterator& pair = map.begin(); pair != map.end(); pair++)
+	for (MAPE_MACROTXT::iterator pair = map.begin(); pair != map.end(); pair++)
 	{
 		SAFE_DELETE(pair->second); // Libera la memoria apuntada
 	}
@@ -2510,7 +2510,7 @@ void SEASON3B::CNewUIMacroMain::ClearMap(MAPE_MACROTXT& map)
 
 void SEASON3B::CNewUIMacroMain::ClearMap(MAPE_MACROIMG& map)
 {
-	for (MAPE_MACROIMG::iterator& pair = map.begin(); pair != map.end(); pair++)
+	for (MAPE_MACROIMG::iterator pair = map.begin(); pair != map.end(); pair++)
 	{
 		SAFE_DELETE(pair->second); // Libera la memoria apuntada
 	}

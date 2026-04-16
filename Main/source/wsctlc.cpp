@@ -190,18 +190,6 @@ int CWsctlc::Create(HWND hWnd, BOOL bGame)
 		MessageBox(NULL, lpszMessage, "Error", MB_OK);
 		return FALSE;
 	}
-
-#ifdef __ANDROID__
-	// Android does not use WSAAsyncSelect. Keep the game socket non-blocking so
-	// connect/send/recv are driven by per-frame polling without freezing render.
-	unsigned long nonBlocking = 1;
-	if (ioctlsocket(m_socket, 0x8004667e, &nonBlocking) == SOCKET_ERROR)
-	{
-		closesocket(m_socket);
-		m_socket = INVALID_SOCKET;
-		return FALSE;
-	}
-#endif
 	m_hWnd = hWnd;
 	return TRUE;
 }
@@ -302,10 +290,7 @@ int CWsctlc::Connect(char* ip_addr, unsigned short port, DWORD WinMsgNum)
 #ifdef _DEBUG		
 		LogPrint("Connect error (%d)", WSAGetLastError());
 #endif // _DEBUG
-		int lastError = WSAGetLastError();
-		if (lastError != WSAEWOULDBLOCK
-			&& lastError != WSAEINPROGRESS
-			&& lastError != WSAEALREADY)
+		if (WSAGetLastError() != WSAEWOULDBLOCK)
 		{
 			closesocket(m_socket);
 			return FALSE;
@@ -343,10 +328,7 @@ int CWsctlc::sSend(SOCKET socket, char* buf, int len)
 
 		if (nResult == SOCKET_ERROR)
 		{
-			if (WSAGetLastError() != WSAEWOULDBLOCK
-				&& WSAGetLastError() != WSAENOTCONN
-				&& WSAGetLastError() != WSAEINPROGRESS
-				&& WSAGetLastError() != WSAEALREADY)
+			if (WSAGetLastError() != WSAEWOULDBLOCK)
 			{
 				g_ConsoleDebug->Write(MCD_ERROR, "[Send Packet Error] WSAGetLastError() != WSAEWOULDBLOCK");
 				g_ErrorReport.Write("[Send Packet Error] WSAGetLastError() != WSAEWOULDBLOCK\r\n");
@@ -401,10 +383,7 @@ int CWsctlc::FDWriteSend()
 
 		if (nResult == SOCKET_ERROR)
 		{
-			if (WSAGetLastError() != WSAEWOULDBLOCK
-				&& WSAGetLastError() != WSAENOTCONN
-				&& WSAGetLastError() != WSAEINPROGRESS
-				&& WSAGetLastError() != WSAEALREADY)
+			if (WSAGetLastError() != WSAEWOULDBLOCK)
 			{
 				g_ErrorReport.Write("FDWriteSend Error 1.\r\n");
 				Close();

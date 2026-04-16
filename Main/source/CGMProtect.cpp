@@ -824,6 +824,21 @@ void CGMProtect::runtime_checked_crc32()
 }
 
 #ifdef MAX_INSTANCE_GAME
+#ifdef __ANDROID__
+bool CGMProtect::runtime_create_mutex()
+{
+	return true;
+}
+
+void CGMProtect::runtime_delete_mutex()
+{
+}
+
+DWORD CGMProtect::GetProcessIDFromMutex(const std::string&)
+{
+	return 0;
+}
+#else
 bool CGMProtect::runtime_create_mutex()
 {
 	if (this->GetMaxOfInstance() == 0)
@@ -914,6 +929,7 @@ DWORD CGMProtect::GetProcessIDFromMutex(const std::string& mutexName)
 
 	return ownerPID;
 }
+#endif // __ANDROID__
 #endif // MAX_INSTANCE_GAME
 
 void CGMProtect::Release()

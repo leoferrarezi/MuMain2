@@ -16,6 +16,4 @@ private:
 	std::vector<CHARACTER> CharacterMemoryDump;
 };
 
-CGMCharacter* GetGMCharacter();
-
-#define gmCharacters			(GetGMCharacter())
+#define gmCharacters			(CGMCharacter::GetSingletonPtr())

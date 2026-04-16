@@ -7,8 +7,6 @@
 
 #pragma once
 
-#ifndef __ANDROID__
-
 #define INPUT	0
 #define OUTPUT	1
 
@@ -32,7 +30,5 @@ private:
 	int				m_SilentSample;
 	bool			m_IO;
 };
-
-#endif // !__ANDROID__
 
 #endif // !defined(AFX_WAVEIO_H__A0449D63_0097_11D4_A092_A64970C5F176__INCLUDED_)

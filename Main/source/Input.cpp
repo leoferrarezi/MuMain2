@@ -10,23 +10,6 @@
 
 extern CTimer* g_pTimer;
 
-#ifdef __ANDROID__
-extern float MouseX;
-extern float MouseY;
-void AndroidShowSoftKeyboard();
-void AndroidHideSoftKeyboard();
-
-static inline void GetAndroidCursorPoint(POINT* pt)
-{
-	if (pt == NULL)
-	{
-		return;
-	}
-	pt->x = (LONG)MouseX;
-	pt->y = (LONG)MouseY;
-}
-#endif
-
 CInput::CInput()
 {
 
@@ -53,12 +36,8 @@ bool CInput::Create(HWND hWnd, long lScreenWidth, long lScreenHeight)
 	m_lScreenWidth = lScreenWidth;
 	m_lScreenHeight = lScreenHeight;
 
-#ifdef __ANDROID__
-	GetAndroidCursorPoint(&m_ptCursor);
-#else
 	::GetCursorPos(&m_ptCursor);
 	::ScreenToClient(m_hWnd, &m_ptCursor);
-#endif
 	m_ptFormerCursor = m_ptCursor;
 
 	m_bLeftHand = false;
@@ -83,12 +62,8 @@ void CInput::Update()
 		= m_bLBtnDn = m_bRBtnDn = m_bMBtnDn
 		= m_bLBtnDbl = m_bRBtnDbl = m_bMBtnDbl = false;
 
-#ifdef __ANDROID__
-	GetAndroidCursorPoint(&m_ptCursor);
-#else
 	::GetCursorPos(&m_ptCursor);
 	::ScreenToClient(m_hWnd, &m_ptCursor);
-#endif
 
 	m_ptCursor.x = LIMIT(m_ptCursor.x, 0, m_lScreenWidth - 1);
 	m_ptCursor.y = LIMIT(m_ptCursor.y, 0, m_lScreenHeight - 1);
@@ -252,27 +227,6 @@ void CInput::Update()
 
 		m_ptCursor.x = m_ptCursor.y = 0;
 		return;
-	}
-#endif
-}
-
-void CInput::SetTextEditMode(bool bTextEditMode)
-{
-	if (m_bTextEditMode == bTextEditMode)
-	{
-		return;
-	}
-
-	m_bTextEditMode = bTextEditMode;
-
-#ifdef __ANDROID__
-	if (m_bTextEditMode)
-	{
-		AndroidShowSoftKeyboard();
-	}
-	else
-	{
-		AndroidHideSoftKeyboard();
 	}
 #endif
 }

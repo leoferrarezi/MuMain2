@@ -176,7 +176,7 @@ Atualizar os checkboxes conforme cada item for concluído.
 - [x] `MovieScene` / `dshow.h` — já dentro de `#ifdef MOVIE_DIRECTSHOW`
 - [x] `GCCertification.cpp` / `LauncherHelper.cpp` / `UsefulDef.cpp` — guards adicionados
 - [x] `Util.cpp` — UUID/RPC → Android stub
-- [x] `create_hwid_system()` — Android stub (placeholder ID)
+- [x] `create_hwid_system()` — Android via JNI com HWID determinístico (formato 8-8-8-8)
 - [x] `AndroidWin32Compat.h` — CreateFile/ReadFile/WriteFile/CloseHandle shims via fopen
 - [x] `AndroidWin32Compat.h` — GetCursorPos/ScreenToClient → MouseX/MouseY globals
 - [x] `AndroidWin32Compat.h` — sprintf_s/vsprintf_s/wsprintf → snprintf shims
@@ -232,7 +232,22 @@ Atualizar os checkboxes conforme cada item for concluído.
 - [ ] Rotação de tela desabilitada (portrait fixo)
 - [ ] Back button fecha o jogo corretamente
 
-### Última validação (2026-04-15)
+### Última validação (2026-04-16)
+
+- Build Android: `./gradlew :app:installDebug --no-daemon` ✅
+- Fluxo de login Android validado com logs de rede:
+  - `SendRequestServerHWID sock=... hwid=...` com valor não-placeholder ✅
+  - `Packet head=0xF4 size=43 ...` + `ReceiveServerList total=1` ✅
+- Compatibilidade para lista de servidor em ambiente privado:
+  - `ReceiveServerList[0] idx=0 ...`
+  - fallback `MakeServerGroup` ativado quando índice não existe no `ServerList.bmd` (`serverGroups` passou de `0` para `1`) ✅
+- Estado de UI no login após correções:
+  - `loginMain=1`, `serverSel=1`, `serverGroups=1` em loop estável ✅
+  - fundo/logo de login renderizando no Android (sem tela preta total) ✅
+- Estado atual do bloqueio funcional:
+  - sequência completa de interação touch até `loginWin=1` ainda depende de calibração fina dos cliques no emulador; base de render/rede e janelas principais está ativa.
+
+### Validação anterior (2026-04-15)
 
 - Build Android: `./gradlew :app:assembleDebug` ✅
 - Endpoint de login Android validado em runtime: `74.63.218.132:44404` ✅
@@ -311,4 +326,4 @@ adb logcat -s MUAssets:V           # download e carregamento de assets
 
 ---
 
-*Última atualização: 2026-04-15 — fluxo temporário sem downloader HTTP: `Data/` embutido em `Main/android/app/src/main/assets/Data` e cópia local no bootstrap Android (otimizada com marcador `.data_assets_copied`). Endpoint Android de login consolidado em `74.63.218.132:44404`, com iteração de paridade frente ao `sourceOld` no caminho de login/server list e manutenção de shim mínimo Android para confiabilidade de rede. Fluxo `WEBZEN_SCENE` -> `LOG_IN_SCENE` permanece estável sem crash fatal imediato; pendência ativa está na validação funcional contínua do server select até character/main scene.*
+*Última atualização: 2026-04-16 — fluxo Android de login/server select estabilizado em rede/render para o endpoint `74.63.218.132:44404`: HWID JNI determinístico ativo, resposta de server list confirmada em runtime, fallback de grupos ausentes no `ServerList.bmd` aplicado para compatibilidade com servidor privado e render de fundo/logo de login restaurado no caminho leve (`SceneLogin=1`). Próxima pendência prática permanece na validação de interação completa até `loginWin` e progressão para `CHARACTER_SCENE`.*

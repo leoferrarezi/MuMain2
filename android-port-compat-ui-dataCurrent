@@ -1,5 +1,5 @@
 ANDROID PORT COMPAT/UI/DATA - CURRENT SNAPSHOT
-Date: 2026-04-14
+Date: 2026-04-16
 
 Build status
 - Native build: ./gradlew ':app:buildCMakeDebug[arm64-v8a]' --no-daemon -> SUCCESS
@@ -10,8 +10,12 @@ Compatibility status (current)
 - Input bridge: touch->mouse + soft keyboard focus integration active.
 - Game downloader path: reusing original GameShop downloader code path (FileDownloader + HTTPConnecter).
 - Runtime diagnostic: MUAssets logs now expose detailed transport failures (errno/stage/file) for downloader troubleshooting.
+- Login networking: HWID JNI deterministic enabled (`create_hwid_system` no longer placeholder), with server response confirmed (`ReceiveServerList total=1`).
+- Login server group compatibility: fallback for missing `ServerList.bmd` group index active on Android private-server flow (`serverGroups=1` after receive).
 
 UI/Data status (current)
+- Login scene lightweight path now renders original background/logo bitmaps on Android (no black-only screen).
+- Server select windows are visible/stable in runtime (`loginMain=1`, `serverSel=1`) after server list receive.
 - First-run downloader screen is active (basic GLES clear/progress tick).
 - Required files source order:
   1) remote manifest `Data/assets-manifest.txt` when available,
@@ -36,25 +40,22 @@ Runtime override wiring
 - android_main.cpp reads getAssetServerUrl() and calls GameDownloader::SetServerURL().
 
 Pending to continue implementation
-1. Stabilize HTTP transport on Android first-run for large file `Data/Custom/NPC/Monster1000.bmd` (current blocker: abort/timeout in emulator runtime).
-2. Publish `Data/assets-manifest.txt` to the definitive asset server.
-3. Define production policy for mandatory CRC manifests (today sidecar remains optional by design).
-4. Validate package extraction in real device restart/failure scenarios.
-5. Optional: richer downloader UI (text/progress bar).
-6. Optional: in-app fallback settings UI for asset server URL.
+1. Validar sequência completa de interação touch: server select -> abertura de login (`loginWin`) -> progressão para `CHARACTER_SCENE`.
+2. Stabilize HTTP transport on Android first-run for large file `Data/Custom/NPC/Monster1000.bmd` (current blocker: abort/timeout in emulator runtime).
+3. Publish `Data/assets-manifest.txt` to the definitive asset server.
+4. Define production policy for mandatory CRC manifests (today sidecar remains optional by design).
+5. Validate package extraction in real device restart/failure scenarios.
+6. Optional: richer downloader UI (text/progress bar).
+7. Optional: in-app fallback settings UI for asset server URL.
 
 Files touched in this cycle
-- Main/source/Platform/GameDownloader.cpp
-- Main/android/app/src/main/cpp/android_main.cpp
+- Main/source/Util.cpp
+- Main/source/ServerListManager.cpp
+- Main/source/ZzzScene.cpp
+- Main/source/WSclient.cpp
+- Main/source/wsclientinline.h
 - Main/android/app/src/main/java/com/mucrossengine/client/MainActivity.java
-- Main/android/app/src/main/AndroidManifest.xml
-- Main/source/Platform/AndroidWin32Compat.h
-- Main/source/GameShop/FileDownloader/HTTPConnecter.cpp
-- Main/source/GameShop/FileDownloader/FileDownloader.cpp
-- tools/generate_assets_manifest.cpp
-- tools/generate_assets_manifest.sh
-- docs/assets-server/Data/assets-manifest.txt
-- Data/assets-manifest.txt
 - ANDROID_PORT.md
 - README.md
 - docs/android-port-compat-ui-2026-04-13.md
+- android-port-compat-ui-dataCurrent

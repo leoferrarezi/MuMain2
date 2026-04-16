@@ -40,7 +40,7 @@ bool runtime_load_protect()
 	memset(&kernelInfo, 0, sizeof(kernelInfo));
 
 	const std::string connectPath = ResolveAndroidDataPath("Data\\Local\\Connect.msil");
-	const std::string mainInfoPath = ResolveAndroidDataPath("Data\\av-code45.pak");
+	std::string mainInfoPath = ResolveAndroidDataPath("Data\\av-code45.pak");
 
 	if (GMProtect->ReadMainConnect(connectPath, &kernelInfo, sizeof(MAIN_INFO_ENV)) == false)
 	{

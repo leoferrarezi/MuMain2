@@ -208,11 +208,6 @@ namespace SEASON3B
 			_container.SetInstState(INSTANCE_REFERENCE);
 			return pObj;
 		}
-		template <class T>
-		T* NewMessageBox(TContainer<T>&& _container)
-		{
-			return NewMessageBox(_container);
-		}
 
 		void DeleteMessageBox(const CNewUIMessageBoxBase* pObj)
 		{
@@ -400,10 +395,14 @@ namespace SEASON3B
 		
 		return container.SetLayout();
 	}
+
 	template <class _L>
 	bool CreateMessageBox(TMsgBoxLayoutContainer<_L>&& container)
 	{
-		return CreateMessageBox(container);
+		if(false == container.Create()) //. MessageBox Layout
+			return false;
+
+		return container.SetLayout();
 	}
 	template <class _L, class _M>
 		bool CreateMessageBox(TMsgBoxLayoutContainer<_L>& container, _M** ppMsgBox)
@@ -415,10 +414,16 @@ namespace SEASON3B
 
 		return container.SetLayout();
 	}
+
 	template <class _L, class _M>
 	bool CreateMessageBox(TMsgBoxLayoutContainer<_L>&& container, _M** ppMsgBox)
 	{
-		return CreateMessageBox(container, ppMsgBox);
+		if(false == container.Create()) //. MessageBox Layout
+			return false;
+		if(ppMsgBox)
+			*ppMsgBox = TMsgBoxLayout<_M>::GetMsgBox();
+
+		return container.SetLayout();
 	}
 }
 

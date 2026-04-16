@@ -1574,7 +1574,7 @@ bool SEASON3B::CFenrirRepairMsgBoxLayout::SetLayout()
 CALLBACK_RESULT SEASON3B::CFenrirRepairMsgBoxLayout::OkBtnDown(class CNewUIMessageBoxBase* pOwner, const leaf::xstreambuf& xParam)
 {
 	CFenrirRepairMsgBox* pMsgBox = dynamic_cast<CFenrirRepairMsgBox*>(pOwner);
-	if (pMsgBox == nullptr)
+	if (NULL == pMsgBox)
 	{
 		return CALLBACK_CONTINUE;
 	}
@@ -2834,7 +2834,7 @@ bool SEASON3B::CPersonalShopItemValueCheckMsgBoxLayout::SetLayout()
 CALLBACK_RESULT SEASON3B::CPersonalShopItemValueCheckMsgBoxLayout::OkBtnDown(class CNewUIMessageBoxBase* pOwner, const leaf::xstreambuf& xParam)
 {
 	CNewUI3DItemCommonMsgBox* pMsgBox = dynamic_cast<CNewUI3DItemCommonMsgBox*>(pOwner);
-	if (pMsgBox == nullptr)
+	if (NULL == pMsgBox)
 	{
 		return CALLBACK_CONTINUE;
 	}

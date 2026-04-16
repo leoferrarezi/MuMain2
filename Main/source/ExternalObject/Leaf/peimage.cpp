@@ -1,5 +1,4 @@
 
-#ifndef __ANDROID__  // PE image loader not applicable on Android
 #define WIN32_LEAN_AND_MEAN		// Exclude rarely-used stuff from Windows headers
 
 #include "stdafx.h"
@@ -820,5 +819,3 @@ DWORD CPeImageDataInjector::GetAlignedSize(DWORD dwNonAlignedSize, DWORD dwAlign
 {
 	return (DWORD)(((double)dwNonAlignedSize/(double)dwAlignment)+0.99f)*dwAlignment;
 }
-
-#endif // !__ANDROID__

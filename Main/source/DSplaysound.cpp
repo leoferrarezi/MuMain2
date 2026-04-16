@@ -1,7 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 // DirectX Sound
 ///////////////////////////////////////////////////////////////////////////////
-#ifndef __ANDROID__  // DirectSound is Windows-only; replaced by AudioOpenSLES on Android
 
 //-----------------------------------------------------------------------------
 // File: PlaySound.cpp
@@ -128,7 +127,7 @@ HRESULT InitDirectSound(HWND hDlg)
 
 		// Release the primary buffer, since it is not need anymore
 
-		//  LPDIRECTSOUNDBUFFER �ʱ�ȭ.
+		//  LPDIRECTSOUNDBUFFER �ʱ�ȭ.
 		for (int i = 0; i < MAX_BUFFER; ++i)
 		{
 			g_lpDSBuffer[i][0] = NULL;
@@ -585,5 +584,3 @@ void Set3DSoundPosition()
 		}
 	}
 }
-
-#endif // !__ANDROID__

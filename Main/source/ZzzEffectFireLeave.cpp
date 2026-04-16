@@ -1,7 +1,7 @@
 ///////////////////////////////////////////////////////////////////////////////
-// 3D Æ¯ï¿½ï¿½È¿ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½Ô¼ï¿½
+// 3D Æ¯¼öÈ¿°ú °ü·Ã ÇÔ¼ö
 //
-// *** ï¿½Ô¼ï¿½ ï¿½ï¿½ï¿½ï¿½: 3
+// *** ÇÔ¼ö ·¹º§: 3
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "stdafx.h"
@@ -414,10 +414,9 @@ void MoveEtcLeaf(PARTICLE* o)
 
 bool MoveLeaves()
 {
-	int currentMap = gMapManager->currentMap;
 	int iMaxLeaves = (gMapManager->InDevilSquare() == true) ? MAX_LEAVES : 80;
 
-	if (currentMap == WD_10HEAVEN)
+	if (gMapManager->currentMap == WD_10HEAVEN)
 	{
 		RainTarget = MAX_LEAVES / 2;
 	}
@@ -430,7 +429,7 @@ bool MoveLeaves()
 	{
 		iMaxLeaves = 40;
 	}
-	else if (currentMap == WD_55LOGINSCENE)
+	else if (gMapManager->currentMap == WD_55LOGINSCENE)
 	{
 		iMaxLeaves = 80;
 	}
@@ -488,21 +487,21 @@ bool MoveLeaves()
 				continue;
 			if (SEASON3A::CGM3rdChangeUp::Instance().CreateFireSnuff(o))
 				continue;
-			if (IsIceCity() && g_Raklion.CreateSnow(o))
+			if (g_Raklion.CreateSnow(o))
 				continue;
-			if (IsSantaTown() && g_SantaTown.CreateSnow(o))
+			if (g_SantaTown.CreateSnow(o))
 				continue;
-			if (currentMap == WD_63PK_FIELD && g_PKField.CreateFireSpark(o))
+			if (g_PKField.CreateFireSpark(o))
 				continue;
-			if (currentMap == WD_66DOPPLEGANGER2 && g_DoppelGanger2.CreateFireSpark(o))
+			if (g_DoppelGanger2.CreateFireSpark(o))
 				continue;
-			if (currentMap == WD_69EMPIREGUARDIAN1 && g_EmpireGuardian1.CreateRain(o))
+			if (g_EmpireGuardian1.CreateRain(o))
 				continue;
-			if (currentMap == WD_70EMPIREGUARDIAN2 && g_EmpireGuardian2.CreateRain(o))
+			if (g_EmpireGuardian2.CreateRain(o))
 				continue;
-			if (currentMap == WD_71EMPIREGUARDIAN3 && g_EmpireGuardian3.CreateRain(o))
+			if (g_EmpireGuardian3.CreateRain(o))
 				continue;
-			if (currentMap == WD_79UNITEDMARKETPLACE && g_UnitedMarketPlace.CreateRain(o))
+			if (g_UnitedMarketPlace.CreateRain(o))
 				continue;
 		}
 		else
@@ -513,7 +512,7 @@ bool MoveLeaves()
 				continue;
 			if (MoveHeavenRain(o))
 				continue;
-			if (currentMap == WD_79UNITEDMARKETPLACE && g_UnitedMarketPlace.MoveRain(o))
+			if (g_UnitedMarketPlace.MoveRain(o))
 				continue;
 			MoveEtcLeaf(o);
 		}

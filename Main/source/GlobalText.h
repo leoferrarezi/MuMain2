@@ -102,7 +102,7 @@ public:
 
 			if( CheckLoadDisposition(GTStringHeader.dwKey, dwLoadDisposition) || GTStringHeader.dwKey < MAX_NUMBER_OF_TEXTS)
 			{
-					::BuxConvert((BYTE*)pStringBuffer, sizeof(T)*GTStringHeader.dwSizeOfString);		//. decoding
+				::BuxConvert((BYTE*)pStringBuffer, sizeof(T)*GTStringHeader.dwSizeOfString);		//. decoding
 				pStringBuffer[GTStringHeader.dwSizeOfString] = '\0';
 				m_StringSet.Add(GTStringHeader.dwKey, pStringBuffer);
 			}

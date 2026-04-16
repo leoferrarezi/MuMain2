@@ -398,11 +398,6 @@ void CDirection::FaillingEffect()
 
 void CDirection::HeroFallingDownInit()
 {
-	if (Hero == NULL)
-	{
-		return;
-	}
-
 	if (!m_bDownHero)
 	{
 		Hero->Object.m_bActionStart = false;

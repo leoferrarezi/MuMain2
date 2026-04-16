@@ -10,6 +10,9 @@ import android.os.Environment;
 import android.provider.Settings;
 import android.util.Log;
 import android.view.WindowManager;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.util.Locale;
 import java.io.ByteArrayOutputStream;
 import java.io.BufferedInputStream;
 import java.io.File;
@@ -125,6 +128,44 @@ public class MainActivity extends NativeActivity {
             imm.showSoftInput(getWindow().getDecorView(),
                 android.view.inputmethod.InputMethodManager.SHOW_FORCED);
         }
+    }
+
+    // Called from C++ to get a deterministic device HWID in the same 8-8-8-8 format as PC.
+    public String getAndroidHardwareId() {
+        try {
+            final String androidId = Settings.Secure.getString(getContentResolver(), Settings.Secure.ANDROID_ID);
+            final String seed =
+                (androidId != null ? androidId : "") + "|" +
+                (Build.BOARD != null ? Build.BOARD : "") + "|" +
+                (Build.BRAND != null ? Build.BRAND : "") + "|" +
+                (Build.DEVICE != null ? Build.DEVICE : "") + "|" +
+                (Build.MANUFACTURER != null ? Build.MANUFACTURER : "") + "|" +
+                (Build.MODEL != null ? Build.MODEL : "") + "|" +
+                (Build.FINGERPRINT != null ? Build.FINGERPRINT : "");
+
+            final MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            final byte[] hash = digest.digest(seed.getBytes(StandardCharsets.UTF_8));
+            if (hash == null || hash.length < 16) {
+                return "ANDROID-00000000-00000000-00000000";
+            }
+
+            final int part1 = readIntBigEndian(hash, 0);
+            final int part2 = readIntBigEndian(hash, 4);
+            final int part3 = readIntBigEndian(hash, 8);
+            final int part4 = readIntBigEndian(hash, 12);
+
+            return String.format(Locale.US, "%08X-%08X-%08X-%08X", part1, part2, part3, part4);
+        } catch (Exception exception) {
+            Log.w(TAG, "getAndroidHardwareId failed: " + exception.getMessage());
+            return "ANDROID-00000000-00000000-00000000";
+        }
+    }
+
+    private static int readIntBigEndian(byte[] data, int offset) {
+        return ((data[offset] & 0xFF) << 24)
+            | ((data[offset + 1] & 0xFF) << 16)
+            | ((data[offset + 2] & 0xFF) << 8)
+            | (data[offset + 3] & 0xFF);
     }
 
     // Called from C++ to hide soft keyboard

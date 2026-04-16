@@ -1,6 +1,5 @@
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
-#ifndef __ANDROID__
 #include "stdafx.h"
 
 #define WIN32_LEAN_AND_MEAN
@@ -124,7 +123,7 @@ CErrorReport g_ErrorReport;
 BOOL g_bMinimizedEnabled = FALSE;
 int g_iScreenSaverOldValue = 60 * 15;
 
-extern float g_fScreenRate_x;	// ï¿½ï¿½
+extern float g_fScreenRate_x;	// ¡Ø
 extern float g_fScreenRate_y;
 
 int g_iInactiveWarning = 0;
@@ -775,7 +774,7 @@ BOOL Util_CheckOption(char* lpszCommandLine, unsigned char cOption, char* lpszSt
 	{
 		lpFound = (unsigned char*)strchr((char*)(lpFound + 1), nFind);
 		if (lpFound && (*(lpFound + 1) == cComp[0] || *(lpFound + 1) == cComp[1]))
-		{	// ï¿½ß°ï¿½
+		{	// ¹ß°ß
 			if (lpszString)
 			{
 				int nCount = 0;
@@ -804,7 +803,7 @@ BOOL UpdateFile(char* lpszOld, char* lpszNew)
 	while (::GetTickCount() - dwStartTickCount < 5000)
 	{
 		if (CopyFile(lpszOld, lpszNew, FALSE))
-		{	// ï¿½ï¿½ï¿½ï¿½
+		{	// ¼º°ø
 			DeleteFile(lpszOld);
 			return (TRUE);
 		}
@@ -1344,6 +1343,4 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLin
 
 	return msg.wParam;
 }
-
-#endif // !__ANDROID__
 

@@ -1,4 +1,4 @@
-# Continuidade do Port Android: Verificação pós-git pull (2026-04-14)
+# Continuidade do Port Android: Verificação pós-git pull (atualizado em 2026-04-16)
 
 ## Resumo
 
@@ -9,6 +9,24 @@ Após o `git pull` no branch `mobile`, foi realizada uma auditoria de consistên
 - e o relatório anterior de compatibilidade de UI/texto.
 
 O objetivo foi confirmar o que realmente já está implementado no port Android e atualizar o status sem marcar itens de forma prematura.
+
+## Atualização do dia (2026-04-16)
+
+Rodada focada no bloqueio reportado de tela preta sem login/server select:
+
+- Corrigido HWID Android: `create_hwid_system()` deixou de usar string fixa e passou a buscar HWID determinístico via JNI (`MainActivity.getAndroidHardwareId`).
+- Runtime validado com resposta real do login server:
+  - `Packet head=0xF4 ...`
+  - `ReceiveServerList total=1`.
+- Corrigido bloqueio de grupo vazio na server list:
+  - servidor retornava `idx=0` sem mapeamento em `ServerList.bmd`;
+  - adicionado fallback em `ServerListManager::MakeServerGroup` para criar grupo mínimo compatível no Android.
+- Resultado observado em log:
+  - `serverGroups=1`,
+  - `loginMain=1`,
+  - `serverSel=1`.
+- Ajuste visual aplicado no login leve (`SceneLogin=1`):
+  - fundo/logo do login original renderizados no Android, removendo tela totalmente preta.
 
 ## Atualização do dia (2026-04-14)
 

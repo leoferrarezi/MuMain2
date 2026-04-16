@@ -93,6 +93,14 @@ Para reproduzir o build local usado nesta etapa:
 
 ## Changelog
 
+### 2026-04-16
+
+- Corrigido bloqueio de fluxo de login no Android: `create_hwid_system()` deixou de usar placeholder fixo e passou a gerar HWID determinístico real via JNI (`MainActivity.getAndroidHardwareId`).
+- Validado em runtime que o servidor voltou a responder `ReceiveServerList` após HWID real (`Packet head=0xF4`, `ReceiveServerList total=1`).
+- Adicionado fallback de compatibilidade em `ServerListManager` para grupos ausentes no `ServerList.bmd` (caso comum em server privado), evitando `serverGroups=0` permanente e habilitando a janela de seleção no Android.
+- Ajustado render do `LOG_IN_SCENE` leve no Android para desenhar fundo/logo original do login (bitmaps), removendo o efeito de tela totalmente preta.
+- Estado atual validado no emulador: app permanece estável, conexão/login server ativa, `loginMain=1`, `serverSel=1`, `serverGroups=1`, sem crash fatal.
+
 ### 2026-04-15
 
 - Atualizado roadmap do `README.md`: Fase R5 (integração por cena) passou para **Em andamento**.

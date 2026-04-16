@@ -223,7 +223,7 @@ void CMsgBoxIGSUseBuffConfirm::UnloadImages()
 bool CMsgBoxIGSUseBuffConfirmLayout::SetLayout()
 {
 	CMsgBoxIGSUseBuffConfirm* pMsgBox = GetMsgBox();
-	if(NULL == pMsgBox)
+	if (NULL == pMsgBox)
 		return false;
 	
 	if(false == pMsgBox->Create())

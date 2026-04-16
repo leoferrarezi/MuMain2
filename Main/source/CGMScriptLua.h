@@ -1,60 +1,4 @@
 #pragma once
-
-#ifdef __ANDROID__
-
-#include <vector>
-
-class BMD;
-class OBJECT;
-class CHARACTER_MACHINE;
-
-class CGMLuaBase
-{
-public:
-	CGMLuaBase() = default;
-	virtual ~CGMLuaBase() = default;
-
-	bool runtime_link(std::vector<BYTE> buff) { (void)buff; return false; }
-	bool RenderLinkAction(PART_t* f, OBJECT* pObj) { (void)f; (void)pObj; return false; }
-	bool RenderPartObjectBody(BMD* pModel, OBJECT* pObj, float Alpha, int RenderType)
-	{
-		(void)pModel; (void)pObj; (void)Alpha; (void)RenderType;
-		return false;
-	}
-	bool RenderEffectObjectBody(BMD* pModel, OBJECT* pObj, float Alpha, int RenderType, int Texture)
-	{
-		(void)pModel; (void)pObj; (void)Alpha; (void)RenderType; (void)Texture;
-		return false;
-	}
-};
-
-#ifdef test_main_dev
-class CGMLuaMain
-{
-public:
-	CGMLuaMain() = default;
-	virtual ~CGMLuaMain() = default;
-	void Open() {}
-	bool runtime_link(std::vector<BYTE> buff) { (void)buff; return false; }
-	bool funtions_hook() { return false; }
-	void Render() {}
-	void SetPos() {}
-};
-#endif // test_main_dev
-
-inline int to_funtion__cast_int(float number) { return static_cast<int>(number); }
-inline int to_funtion__timeGetTime() { return static_cast<int>(timeGetTime()); }
-inline void to_funtion__glColor3fv(float* v) { (void)v; }
-inline void to_funtion__glColor4f(float r, float g, float b, float a) { (void)r; (void)g; (void)b; (void)a; }
-inline void to_funtion__Vector(float a, float b, float c, float* v) { if (v) { v[0] = a; v[1] = b; v[2] = c; } }
-inline void to_funtion__VectorCopy(void* lua_table, float* b) { (void)lua_table; (void)b; }
-inline void to_funtion__RenderLevel(int GroupMesh, float Red, float Blue, float Green)
-{
-	(void)GroupMesh; (void)Red; (void)Blue; (void)Green;
-}
-
-#else
-
 #include <sol/sol.hpp>
 
 class BMD;
@@ -138,5 +82,3 @@ extern void to_funtion__glColor4f(float r, float g, float b, float a);
 extern void to_funtion__Vector(float a, float b, float c, float* v);
 extern void to_funtion__VectorCopy(sol::table lua_table, float* b);
 extern void to_funtion__RenderLevel(int GroupMesh, float Red, float Blue, float Green);
-
-#endif // __ANDROID__
