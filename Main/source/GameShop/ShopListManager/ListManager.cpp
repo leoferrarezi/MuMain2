@@ -11,7 +11,9 @@
 #include "stdafx.h"
 #ifdef KJH_ADD_INGAMESHOP_UI_SYSTEM
 #include "ListManager.h"
+#ifndef __ANDROID__
 #include <process.h>
+#endif
 
 CListManager::CListManager() // OK
 {
@@ -170,7 +172,12 @@ WZResult		CListManager::FileDownLoad() // OK
 	{
 		unsigned int ThreadID = 0;
 
+#ifdef __ANDROID__
+		std::thread([this](){ CListManager::RunFileDownLoadThread(this); }).detach();
+		HANDLE hHandle = (HANDLE)1;
+#else
 		HANDLE hHandle = (HANDLE)_beginthreadex(0,0,CListManager::RunFileDownLoadThread,this,0,&ThreadID);
+#endif
 
 		if(hHandle==INVALID_HANDLE_VALUE)
 		{

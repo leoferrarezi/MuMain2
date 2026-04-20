@@ -10,12 +10,14 @@
 
 #include "stdafx.h"
 #ifdef KJH_ADD_INGAMESHOP_UI_SYSTEM
-#include "GameShop\ShopListManager\interface\FileDownloader.h"
+#include "GameShop/ShopListManager/interface/FileDownloader.h"
 #include "HTTPConnecter.h"
 #include "FTPConnecter.h"
-#include <GameShop\ShopListManager\interface\PathMethod\\Path.h>
+#include "GameShop/ShopListManager/interface/PathMethod/Path.h"
 
+#ifndef __ANDROID__
 #include <process.h>
+#endif
 
 FileDownloader::FileDownloader(IDownloaderStateEvent* pStateEvent,
                                DownloadServerInfo* pServerInfo,
@@ -26,8 +28,12 @@ FileDownloader::FileDownloader(IDownloaderStateEvent* pStateEvent,
     this->m_pServerInfo = pServerInfo;
     this->m_pFileInfo = pFileInfo;
     this->m_pConnecter = 0;
+    this->m_hSession = 0;
+    this->m_hConnection = 0;
+    this->m_hRemoteFile = 0;
     this->m_hLocalFile = INVALID_HANDLE_VALUE;
     this->m_nFileLength = 0;
+    this->m_Result.SetSuccessResult();
 }
 
 FileDownloader::~FileDownloader() // OK
@@ -46,6 +52,11 @@ WZResult FileDownloader::DownloadFile() // OK
     this->m_nFileLength = 0;
     this->Release();
     this->m_pConnecter = this->CreateConnecter();
+    if(this->m_pConnecter==0)
+    {
+        this->m_Result.SetResult(DL_EXCEPTION,0,"[FileDownloader::DownloadFile] Fail : CreateConnecter, FileName = %s",this->m_pFileInfo->GetRemoteFilePath());
+        goto JUMP_END;
+    }
     this->m_Result=this->m_pConnecter->CreateSession(this->m_hSession);
 
     if(!this->CanBeContinue())
@@ -121,8 +132,18 @@ WZResult 			FileDownloader::CreateConnection()
 {
     DWORD dwMilliseconds = this->m_pServerInfo->GetConnectTimeout();
 
+#ifdef __ANDROID__
+    if(dwMilliseconds > 0)
+    {
+        // Android compat layer does not provide waitable thread HANDLEs.
+        // Keep connection deterministic by using direct synchronous connect.
+        return this->Connection();
+    }
+#endif
+
     if(dwMilliseconds>0)
     {
+#ifndef __ANDROID__
         unsigned int ThreadID = 0;
 
         HANDLE hHandle = (HANDLE)_beginthreadex(0,0,FileDownloader::RunConnectThread,this,0,&ThreadID);
@@ -149,6 +170,9 @@ WZResult 			FileDownloader::CreateConnection()
                 CloseHandle(hHandle);
             }
         }
+#else
+        this->m_Result = this->Connection();
+#endif
     }
     else
     {
@@ -204,6 +228,12 @@ WZResult 			FileDownloader::TransferRemoteFile()
 
                 TotalSize += ReadSize;
                 this->SendProgressDownloadFileEvent(TotalSize);
+
+                ReadSize = 0;
+                this->m_Result = this->m_pConnecter->ReadRemoteFile(this->m_hRemoteFile,buffer,&ReadSize);
+
+                if(!this->CanBeContinue())
+                    break;
             }
 
             if(ReadSize==0||this->m_bBreak)

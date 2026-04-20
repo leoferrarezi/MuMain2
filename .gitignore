@@ -39,3 +39,48 @@
 
 # debug information files
 *.dwo
+
+# IDEs e configuracoes locais
+.idea/
+.vscode/
+*.iml
+
+# Ferramentas locais e caches do ambiente
+.tools/
+.gradle-home/
+
+# Gradle e Android Studio
+.gradle/
+**/.gradle/
+**/.gradle-user/
+**/.android-user/
+analytics.settings
+**/analytics.settings
+local.properties
+
+# Build Android
+**/build/
+**/.cxx/
+captures/
+
+# Build Visual Studio e artefatos Windows
+.vs/
+[Dd]ebug/
+[Rr]elease/
+x64/
+[Bb]in/
+[Oo]bj/
+ipch/
+*.idb
+*.ilk
+*.tlog
+*.log
+*.tmp
+*.cache
+*.suo
+*.user
+*.VC.db
+*.VC.opendb
+Data/
+
+Main/sourceOld

@@ -7,7 +7,9 @@
 #include "./Utilities/Log/ErrorReport.h"
 #include "wsclientinline.h"
 
+#ifndef __ANDROID__
 #include <crtdbg.h>
+#endif
 
 #define	QM_NPCDIALOGUE_FILE			"Data\\Local\\NPCDialogue.bmd"
 #define	QM_QUESTPROGRESS_FILE		"Data\\Local\\QuestProgress.bmd"

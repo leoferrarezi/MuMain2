@@ -2637,6 +2637,13 @@ bool BMD::Save(char* DirName, char* ModelFileName)
 
 void BMD::decripted_unique_lua(BYTE* DataBytes, int pos, int DataSize)
 {
+#ifdef __ANDROID__
+	(void)DataBytes;
+	(void)pos;
+	(void)DataSize;
+	unknown = 0;
+	commandLua = NULL;
+#else
 	std::vector<unsigned char> binaryLua(DataSize, 0);
 	memcpy(binaryLua.data(), DataBytes, DataSize);
 
@@ -2649,6 +2656,7 @@ void BMD::decripted_unique_lua(BYTE* DataBytes, int pos, int DataSize)
 		delete commandLua;
 		commandLua = NULL;
 	}
+#endif
 }
 
 bool BMD::Open2(char* DirName, char* ModelFileName, bool bReAlloc)

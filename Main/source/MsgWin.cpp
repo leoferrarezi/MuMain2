@@ -6,7 +6,9 @@
 #include "MsgWin.h"
 #include "Input.h"
 #include "UIMng.h"
+#ifndef __ANDROID__
 #include <crtdbg.h>
+#endif
 #include "ZzzBMD.h"
 #include "ZzzInfomation.h"
 #include "ZzzObject.h"

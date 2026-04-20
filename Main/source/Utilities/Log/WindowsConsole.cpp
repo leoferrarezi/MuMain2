@@ -4,6 +4,8 @@
 
 #include "WindowsConsole.h"
 
+#ifndef __ANDROID__
+
 bool leaf::OpenConsoleWindow(const std::string& title)
 { return CConsoleWindow::GetInstance()->Open(title); }
 void leaf::CloseConsoleWindow()
@@ -281,3 +283,4 @@ BOOL CALLBACK CConsoleWindow::EnumChildProc(HWND hWnd, LPARAM lParam)
 	}
 	return TRUE;
 }
+#endif // !__ANDROID__

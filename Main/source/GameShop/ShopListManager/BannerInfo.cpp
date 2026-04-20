@@ -14,9 +14,10 @@
 #include "StringToken.h"
 #include "StringMethod.h"
 
+#ifndef __ANDROID__
 #include <UrlMon.h>
-
 #pragma comment(lib,"Urlmon.lib")
+#endif
 
 CBannerInfo::CBannerInfo() // OK
 {
@@ -65,7 +66,9 @@ bool	CBannerInfo::SetBanner(std::string strdata,std::string strDirPath,bool bDon
 
 		if(bDonwLoad||GetFileAttributes(this->BannerImagePath)==INVALID_FILE_ATTRIBUTES)
 		{
+#ifndef __ANDROID__
 			URLDownloadToFile(0,this->BannerImageURL,this->BannerImagePath,0,0);
+#endif
 		}
 	}
 

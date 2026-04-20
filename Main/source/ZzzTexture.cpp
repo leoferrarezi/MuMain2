@@ -2,16 +2,25 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "stdafx.h"
-#include <setjmp.h>
 #include "ZzzTexture.h"
 #include "./Utilities/Log/ErrorReport.h"
 #include "WSclient.h"
 #include "DSPlaySound.h"
-#include "Jpeglib.h"
+#ifndef __ANDROID__
+#include <setjmp.h>
+#include <turbojpeg/jpeglib.h>
+#else
+#include <vector>
+#include <turbojpeg/stb_image.h>
+#endif
 #include "ProtocolSend.h"
+#ifdef __ANDROID__
+#include <android/log.h>
+#endif
 
 CGlobalBitmap Bitmaps;
 
+#ifndef __ANDROID__
 struct my_error_mgr
 {
 	struct jpeg_error_mgr pub;
@@ -26,9 +35,18 @@ METHODDEF(void) my_error_exit(j_common_ptr cinfo)
 	(*cinfo->err->output_message) (cinfo);
 	longjmp(myerr->setjmp_buffer, 1);
 }
+#endif // !__ANDROID__
 
 bool WriteJpeg(char* filename, int Width, int Height, unsigned char* Buffer, int quality)
 {
+#ifdef __ANDROID__
+	(void)filename;
+	(void)Width;
+	(void)Height;
+	(void)Buffer;
+	(void)quality;
+	return false;
+#else
 	struct jpeg_compress_struct cinfo;
 	struct jpeg_error_mgr jerr;
 	FILE* outfile;
@@ -65,6 +83,7 @@ bool WriteJpeg(char* filename, int Width, int Height, unsigned char* Buffer, int
 	fclose(outfile);
 	jpeg_destroy_compress(&cinfo);
 	return TRUE;
+#endif
 }
 
 void SaveImage(int HeaderSize, char* Ext, char* filename, BYTE* PakBuffer, int Size)
@@ -117,6 +136,88 @@ void SaveImage(int HeaderSize, char* Ext, char* filename, BYTE* PakBuffer, int S
 
 bool OpenJpegBuffer(char* filename, float* BufferFloat)
 {
+#ifdef __ANDROID__
+	if (filename == nullptr || BufferFloat == nullptr)
+	{
+		return false;
+	}
+
+	char FileName[256];
+	char NewFileName[256];
+	int iTextcnt = 0;
+	for (int i = 0; i < (int)strlen(filename); i++)
+	{
+		iTextcnt = i;
+		NewFileName[i] = filename[i];
+		if (filename[i] == '.') break;
+	}
+	NewFileName[iTextcnt + 1] = '\0';
+	strcpy(FileName, "Data\\");
+	strcat(FileName, NewFileName);
+	strcat(FileName, "OZJ");
+
+	FILE* infile = fopen(FileName, "rb");
+	if (infile == NULL)
+	{
+		char Text[256];
+		sprintf(Text, "%s - File not exist.", FileName);
+		g_ErrorReport.Write(Text);
+		g_ErrorReport.Write("\r\n");
+		MessageBox(gwinhandle->GethWnd(), Text, NULL, MB_OK);
+		SendMessage(gwinhandle->GethWnd(), WM_DESTROY, 0, 0);
+		return false;
+	}
+
+	fseek(infile, 0, SEEK_END);
+	long fileSize = ftell(infile);
+	if (fileSize <= 24)
+	{
+		fclose(infile);
+		return false;
+	}
+
+	fseek(infile, 24, SEEK_SET);
+	std::vector<BYTE> encoded((size_t)(fileSize - 24));
+	if (fread(encoded.data(), 1, encoded.size(), infile) != encoded.size())
+	{
+		fclose(infile);
+		return false;
+	}
+	fclose(infile);
+
+	int outputWidth = 0;
+	int outputHeight = 0;
+	int outputComponents = 0;
+	unsigned char* decoded = stbi_load_from_memory(
+		encoded.data(),
+		static_cast<int>(encoded.size()),
+		&outputWidth,
+		&outputHeight,
+		&outputComponents,
+		3);
+
+	if (decoded == nullptr)
+	{
+		return false;
+	}
+
+	const size_t rowStride = static_cast<size_t>(outputWidth) * 3;
+	size_t index = 0;
+	for (int y = 0; y < outputHeight; ++y)
+	{
+		const unsigned char* row = decoded + (outputHeight - 1 - y) * rowStride;
+		for (int x = 0; x < outputWidth; ++x)
+		{
+			BufferFloat[index + 0] = static_cast<float>(row[x * 3 + 0]) / 255.f;
+			BufferFloat[index + 1] = static_cast<float>(row[x * 3 + 1]) / 255.f;
+			BufferFloat[index + 2] = static_cast<float>(row[x * 3 + 2]) / 255.f;
+			index += 3;
+		}
+	}
+
+	stbi_image_free(decoded);
+	return true;
+#else
 	struct jpeg_decompress_struct cinfo;
 	struct my_error_mgr jerr;
 	FILE* infile;
@@ -203,6 +304,7 @@ bool OpenJpegBuffer(char* filename, float* BufferFloat)
 	jpeg_destroy_decompress(&cinfo);
 	fclose(infile);
 	return true;
+#endif
 }
 
 bool LoadBitmap(const char* szFileName, GLuint uiTextureIndex, GLuint uiFilter, GLuint uiWrapMode, bool bCheck, bool bFullPath)
@@ -223,6 +325,15 @@ bool LoadBitmap(const char* szFileName, GLuint uiTextureIndex, GLuint uiFilter, 
 	{
 		if (false == Bitmaps.LoadImage(uiTextureIndex, szFullPath, uiFilter, uiWrapMode))
 		{
+#ifdef __ANDROID__
+			__android_log_print(ANDROID_LOG_ERROR,
+				"MUTexture",
+				"LoadBitmap failed idx=%u path=%s filter=0x%x wrap=0x%x",
+				uiTextureIndex,
+				szFullPath,
+				uiFilter,
+				uiWrapMode);
+#endif
 			char szErrorMsg[256] = { 0, };
 			sprintf(szErrorMsg, "LoadBitmap Failed: %s", szFullPath);
 			PopUpErrorCheckMsgBox(szErrorMsg, true);

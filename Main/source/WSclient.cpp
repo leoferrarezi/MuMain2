@@ -55,8 +55,8 @@
 #include "SkillManager.h"
 
 #ifdef KJH_ADD_INGAMESHOP_UI_SYSTEM	
-#include "GameShop\InGameShopSystem.h"
-#include "GameShop\MsgBoxIGSCommon.h"
+#include "GameShop/InGameShopSystem.h"
+#include "GameShop/MsgBoxIGSCommon.h"
 #endif // KJH_ADD_INGAMESHOP_UI_SYSTEM
 #include "DuelMgr.h"
 #include "QuestMng.h"
@@ -320,6 +320,10 @@ void ReceiveServerList(BYTE* ReceiveBuffer)
 		rUIMng.m_ServerSelWin.UpdateDisplay();
 		rUIMng.ShowWin(&rUIMng.m_LoginMainWin);
 	}
+
+#ifdef __ANDROID__
+	__android_log_print(ANDROID_LOG_INFO, "MUAndroid", "ReceiveServerList total=%d", TotalServer);
+#endif
 
 	g_ErrorReport.Write("Success Receive Server List.\r\n");
 	g_ConsoleDebug->Write(MCD_RECEIVE, "0xF4 [ReceiveServerList]");

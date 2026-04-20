@@ -1,6 +1,12 @@
 #include "stdafx.h"
 #include "CGMCharacter.h"
 
+CGMCharacter* GetGMCharacter()
+{
+	static CGMCharacter s_character;
+	return &s_character;
+}
+
 CGMCharacter::CGMCharacter()
 {
 	CharactersClient = NULL;
@@ -43,5 +49,5 @@ CHARACTER* CGMCharacter::GetDummyCharacter()
 
 int CGMCharacter::GetCharacterIndex(CHARACTER* pCha)
 {
-	return ((int)pCha - (int)&CharactersClient[0]) / sizeof(CHARACTER);
+	return static_cast<int>(pCha - &CharactersClient[0]);
 }

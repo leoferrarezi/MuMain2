@@ -942,35 +942,35 @@ void SEASON3B::CNewUIMacroMain::EventOrderWindows(double WindowsX, double Window
 
 	RenderFrameX -= (WindowsX - m_Pos.x);
 
-	for (MAPE_CHECKBOX::iterator& pair = m_checkBox.begin(); pair != m_checkBox.end(); pair++)
+	for (MAPE_CHECKBOX::iterator pair = m_checkBox.begin(); pair != m_checkBox.end(); pair++)
 	{
 		CCheckBox* element = pair->second;
 		int x = RenderFrameX + (element->GetPos().x - m_Pos.x);
 		element->SetPos(x, element->GetPos().y);
 	}
 
-	for (MAPE_BUTTON::iterator& pair = m_Buttons.begin(); pair != m_Buttons.end(); pair++)
+	for (MAPE_BUTTON::iterator pair = m_Buttons.begin(); pair != m_Buttons.end(); pair++)
 	{
 		CNewUIButton* element = pair->second;
 		int x = RenderFrameX + (element->GetPos().x - m_Pos.x);
 		element->SetPos(x, element->GetPos().y);
 	}
 
-	for (MAPE_TXTINPUT::iterator& pair = m_InputBox.begin(); pair != m_InputBox.end(); pair++)
+	for (MAPE_TXTINPUT::iterator pair = m_InputBox.begin(); pair != m_InputBox.end(); pair++)
 	{
 		CUITextInputBox* element = pair->second;
 		int x = RenderFrameX + (element->GetPosition_x() - m_Pos.x);
 		element->SetPosition(x, element->GetPosition_y());
 	}
 
-	for (MAPE_MACROTXT::iterator& pair = m_stMacroUIText.begin(); pair != m_stMacroUIText.end(); pair++)
+	for (MAPE_MACROTXT::iterator pair = m_stMacroUIText.begin(); pair != m_stMacroUIText.end(); pair++)
 	{
 		stMacroUIText* element = pair->second;
 		int x = RenderFrameX + (element->GetPos().x - m_Pos.x);
 		element->SetPos(x, element->GetPos().y);
 	}
 
-	for (MAPE_MACROIMG::iterator& pair = m_stMacroUIImage.begin(); pair != m_stMacroUIImage.end(); pair++)
+	for (MAPE_MACROIMG::iterator pair = m_stMacroUIImage.begin(); pair != m_stMacroUIImage.end(); pair++)
 	{
 		stMacroUIImage* element = pair->second;
 		int x = RenderFrameX + (element->GetPos().x - m_Pos.x);
@@ -2465,7 +2465,7 @@ int SEASON3B::CNewUIMacroMain::GetSkillListOffset()
 /*
 void SEASON3B::CNewUIMacroMain::ClearMap(MAPE_CHECKBOX& map)
 {
-	for (MAPE_CHECKBOX::iterator& pair = map.begin(); pair != map.end(); pair++)
+	for (MAPE_CHECKBOX::iterator pair = map.begin(); pair != map.end(); pair++)
 	{
 		SAFE_DELETE(pair->second);
 	}
@@ -2474,7 +2474,7 @@ void SEASON3B::CNewUIMacroMain::ClearMap(MAPE_CHECKBOX& map)
 
 void SEASON3B::CNewUIMacroMain::ClearMap(MAPE_BTNGROUP& map)
 {
-	for (MAPE_BTNGROUP::iterator& pair = map.begin(); pair != map.end(); pair++)
+	for (MAPE_BTNGROUP::iterator pair = map.begin(); pair != map.end(); pair++)
 	{
 		SAFE_DELETE(pair->second); // Libera la memoria apuntada
 	}
@@ -2483,7 +2483,7 @@ void SEASON3B::CNewUIMacroMain::ClearMap(MAPE_BTNGROUP& map)
 
 void SEASON3B::CNewUIMacroMain::ClearMap(MAPE_TXTINPUT& map)
 {
-	for (MAPE_TXTINPUT::iterator& pair = map.begin(); pair != map.end(); pair++)
+	for (MAPE_TXTINPUT::iterator pair = map.begin(); pair != map.end(); pair++)
 	{
 		SAFE_DELETE(pair->second); // Libera la memoria apuntada
 	}
@@ -2492,7 +2492,7 @@ void SEASON3B::CNewUIMacroMain::ClearMap(MAPE_TXTINPUT& map)
 
 void SEASON3B::CNewUIMacroMain::ClearMap(MAPE_BUTTON& map)
 {
-	for (MAPE_BUTTON::iterator& pair = map.begin(); pair != map.end(); pair++)
+	for (MAPE_BUTTON::iterator pair = map.begin(); pair != map.end(); pair++)
 	{
 		SAFE_DELETE(pair->second); // Libera la memoria apuntada
 	}
@@ -2501,7 +2501,7 @@ void SEASON3B::CNewUIMacroMain::ClearMap(MAPE_BUTTON& map)
 
 void SEASON3B::CNewUIMacroMain::ClearMap(MAPE_MACROTXT& map)
 {
-	for (MAPE_MACROTXT::iterator& pair = map.begin(); pair != map.end(); pair++)
+	for (MAPE_MACROTXT::iterator pair = map.begin(); pair != map.end(); pair++)
 	{
 		SAFE_DELETE(pair->second); // Libera la memoria apuntada
 	}
@@ -2510,7 +2510,7 @@ void SEASON3B::CNewUIMacroMain::ClearMap(MAPE_MACROTXT& map)
 
 void SEASON3B::CNewUIMacroMain::ClearMap(MAPE_MACROIMG& map)
 {
-	for (MAPE_MACROIMG::iterator& pair = map.begin(); pair != map.end(); pair++)
+	for (MAPE_MACROIMG::iterator pair = map.begin(); pair != map.end(); pair++)
 	{
 		SAFE_DELETE(pair->second); // Libera la memoria apuntada
 	}

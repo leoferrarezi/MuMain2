@@ -723,132 +723,122 @@ bool SEASON3B::CNewUIMyInventory::UpdateMouseEvent()
 		return false;
 
 	CNewUIPickedItem* pPickedItem = CNewUIInventoryCtrl::GetPickedItem();
-
-	if (!pPickedItem)
-		goto LABEL_NEXT;
-
-	if (!SEASON3B::IsPress(VK_LBUTTON))
-		goto LABEL_NEXT;
-
 	int width = GetScreenWidth();
 
-	if (!CheckMouseIn(0, 0, width, 429))
-		goto LABEL_NEXT;
-
-	if (g_pNewUISystem->IsVisible(SEASON3B::INTERFACE_NPCSHOP) == true
-		|| g_pNewUISystem->IsVisible(SEASON3B::INTERFACE_TRADE) == true
-		|| g_pNewUISystem->IsVisible(SEASON3B::INTERFACE_DEVILSQUARE) == true
-		|| g_pNewUISystem->IsVisible(SEASON3B::INTERFACE_BLOODCASTLE) == true
-		|| g_pNewUISystem->IsVisible(SEASON3B::INTERFACE_MIXINVENTORY) == true
-		|| g_pNewUISystem->IsVisible(SEASON3B::INTERFACE_STORAGE) == true
-		|| g_pNewUISystem->IsVisible(SEASON3B::INTERFACE_MYSHOP_INVENTORY) == true
-		|| g_pNewUISystem->IsVisible(SEASON3B::INTERFACE_LUCKYITEMWND) == true
-		|| g_pNewUISystem->IsVisible(SEASON3B::INTERFACE_PURCHASESHOP_INVENTORY) == true)
+	if (pPickedItem && SEASON3B::IsPress(VK_LBUTTON) && CheckMouseIn(0, 0, width, 429))
 	{
-		ResetMouseLButton();
-		return false;
-	}
-
-	ITEM* pItemObj = pPickedItem->GetItem();
-
-	if (pItemObj && pItemObj->Jewel_Of_Harmony_Option != 0)
-	{
-		g_pChatListBox->AddText("", GlobalText[2217], SEASON3B::TYPE_ERROR_MESSAGE);
-		ResetMouseLButton();
-		return false;
-	}
-	else if (pItemObj && IsHighValueItem(pItemObj) == true)
-	{
-		g_pChatListBox->AddText("", GlobalText[269], SEASON3B::TYPE_ERROR_MESSAGE);
-		CNewUIInventoryCtrl::BackupPickedItem();
-		ResetMouseLButton();
-		return false;
-	}
-	else if (pItemObj && IsDropBan(pItemObj))
-	{
-		g_pChatListBox->AddText("", GlobalText[1915], SEASON3B::TYPE_ERROR_MESSAGE);
-		CNewUIInventoryCtrl::BackupPickedItem();
-		ResetMouseLButton();
-		return false;
-	}
-
-	if (pItemObj)
-	{
-		if (pItemObj->Type == ITEM_POTION + 28)
+		if (g_pNewUISystem->IsVisible(SEASON3B::INTERFACE_NPCSHOP) == true
+			|| g_pNewUISystem->IsVisible(SEASON3B::INTERFACE_TRADE) == true
+			|| g_pNewUISystem->IsVisible(SEASON3B::INTERFACE_DEVILSQUARE) == true
+			|| g_pNewUISystem->IsVisible(SEASON3B::INTERFACE_BLOODCASTLE) == true
+			|| g_pNewUISystem->IsVisible(SEASON3B::INTERFACE_MIXINVENTORY) == true
+			|| g_pNewUISystem->IsVisible(SEASON3B::INTERFACE_STORAGE) == true
+			|| g_pNewUISystem->IsVisible(SEASON3B::INTERFACE_MYSHOP_INVENTORY) == true
+			|| g_pNewUISystem->IsVisible(SEASON3B::INTERFACE_LUCKYITEMWND) == true
+			|| g_pNewUISystem->IsVisible(SEASON3B::INTERFACE_PURCHASESHOP_INVENTORY) == true)
 		{
-			if (gMapManager->IsCursedTemple() == true)
+			ResetMouseLButton();
+			return false;
+		}
+
+		ITEM* pItemObj = pPickedItem->GetItem();
+
+		if (pItemObj && pItemObj->Jewel_Of_Harmony_Option != 0)
+		{
+			g_pChatListBox->AddText("", GlobalText[2217], SEASON3B::TYPE_ERROR_MESSAGE);
+			ResetMouseLButton();
+			return false;
+		}
+		else if (pItemObj && IsHighValueItem(pItemObj) == true)
+		{
+			g_pChatListBox->AddText("", GlobalText[269], SEASON3B::TYPE_ERROR_MESSAGE);
+			CNewUIInventoryCtrl::BackupPickedItem();
+			ResetMouseLButton();
+			return false;
+		}
+		else if (pItemObj && IsDropBan(pItemObj))
+		{
+			g_pChatListBox->AddText("", GlobalText[1915], SEASON3B::TYPE_ERROR_MESSAGE);
+			CNewUIInventoryCtrl::BackupPickedItem();
+			ResetMouseLButton();
+			return false;
+		}
+
+		if (pItemObj)
+		{
+			if (pItemObj->Type == ITEM_POTION + 28)
 			{
-				ResetMouseLButton();
-				return false;
+				if (gMapManager->IsCursedTemple() == true)
+				{
+					ResetMouseLButton();
+					return false;
+				}
 			}
 		}
+
+		RenderTerrain(true);
+		if (RenderTerrainTile(SelectXF, SelectYF, (int)SelectXF, (int)SelectYF, 1.f, 1, true))
+		{
+			int iSourceIndex = pPickedItem->GetSourceLinealPos();
+			int tx = (int)(CollisionPosition[0] / TERRAIN_SCALE);
+			int ty = (int)(CollisionPosition[1] / TERRAIN_SCALE);
+			int InvenIndex = this->IsInvenctrlSame(pPickedItem->GetOwnerInventory());
+			iSourceIndex = this->SlotCntSendSrcInvenIndex(iSourceIndex, InvenIndex);
+
+			if (InvenIndex == -1)
+			{
+				if (pItemObj && pItemObj->ex_src_type == ITEM_EX_SRC_EQUIPMENT)
+				{
+					SendRequestDropItem(iSourceIndex, tx, ty);
+				}
+			}
+			else if (Hero->Dead == 0)
+			{
+				SendRequestDropItem(MAX_EQUIPMENT_INDEX + iSourceIndex, tx, ty);
+			}
+
+			MouseUpdateTime = 0;
+			MouseUpdateTimeMax = 6;
+			ResetMouseLButton();
+			return false;
+		}
 	}
 
-	RenderTerrain(true);
-	if (RenderTerrainTile(SelectXF, SelectYF, (int)SelectXF, (int)SelectYF, 1.f, 1, true))
+	g_csItemOption.SetViewOptionList(false);
+#if MAIN_UPDATE > 303
+	if (CheckMouseIn(m_Pos.x, m_Pos.y + 20, 95, 15) == true)
 	{
-		int iSourceIndex = pPickedItem->GetSourceLinealPos();
-		int tx = (int)(CollisionPosition[0] / TERRAIN_SCALE);
-		int ty = (int)(CollisionPosition[1] / TERRAIN_SCALE);
-		int InvenIndex = this->IsInvenctrlSame(pPickedItem->GetOwnerInventory());
-		iSourceIndex = this->SlotCntSendSrcInvenIndex(iSourceIndex, InvenIndex);
+		g_csItemOption.SetViewOptionList(true);
+	}
+#else
+	if (CheckMouseIn(m_Pos.x + 66, m_Pos.y + 20, 57, 15) == true)
+	{
+		g_csItemOption.SetViewOptionList(true);
+	}
+#endif
 
-		if (InvenIndex == -1)
+	if (CheckMouseIn(m_Pos.x, m_Pos.y, INVENTORY_WIDTH, INVENTORY_HEIGHT))
+	{
+		if (SEASON3B::IsPress(VK_RBUTTON))
 		{
-			if (pItemObj && pItemObj->ex_src_type == ITEM_EX_SRC_EQUIPMENT)
-			{
-				SendRequestDropItem(iSourceIndex, tx, ty);
-			}
-		}
-		else if (Hero->Dead == 0)
-		{
-			SendRequestDropItem(MAX_EQUIPMENT_INDEX + iSourceIndex, tx, ty);
+			ResetMouseRButton();
+			return false;
 		}
 
-		MouseUpdateTime = 0;
-		MouseUpdateTimeMax = 6;
-		ResetMouseLButton();
-		return false;
+		if (SEASON3B::IsNone(VK_LBUTTON) == false)
+			return false;
 	}
 	else
 	{
-	LABEL_NEXT:
-		g_csItemOption.SetViewOptionList(false);
-#if MAIN_UPDATE > 303
-		if (CheckMouseIn(m_Pos.x, m_Pos.y + 20, 95, 15) == true)
+		if (!SEASON3B::IsNone(VK_LBUTTON) || !SEASON3B::IsNone(VK_RBUTTON))
 		{
-			g_csItemOption.SetViewOptionList(true);
-		}
-#else
-		if (CheckMouseIn(m_Pos.x + 66, m_Pos.y + 20, 57, 15) == true)
-		{
-			g_csItemOption.SetViewOptionList(true);
-		}
-#endif
-
-		if (CheckMouseIn(m_Pos.x, m_Pos.y, INVENTORY_WIDTH, INVENTORY_HEIGHT))
-		{
-			if (SEASON3B::IsPress(VK_RBUTTON))
+			if (g_pInvenExpansion->CheckExpansionInventory() || g_pInventoryJewel->CheckExpansionInventory())
 			{
-				ResetMouseRButton();
-				return false;
-			}
-
-			if (SEASON3B::IsNone(VK_LBUTTON) == false)
-				return false;
-		}
-		else
-		{
-			if (!SEASON3B::IsNone(VK_LBUTTON) || !SEASON3B::IsNone(VK_RBUTTON))
-			{
-				if (g_pInvenExpansion->CheckExpansionInventory() || g_pInventoryJewel->CheckExpansionInventory())
+				if (SEASON3B::IsPress(VK_RBUTTON))
 				{
-					if (SEASON3B::IsPress(VK_RBUTTON))
-					{
-						ResetMouseRButton();
-					}
-					return false;
+					ResetMouseRButton();
 				}
+				return false;
 			}
 		}
 	}

@@ -550,7 +550,7 @@ void CPersonalShopTitleImp::CShopTitleDrawObj::Init()
 	m_bHighlight = false;
 }
 
-bool CPersonalShopTitleImp::CShopTitleDrawObj::Create(int key, const std::string& name, const std::string& title, POINT& pos)
+bool CPersonalShopTitleImp::CShopTitleDrawObj::Create(int key, const std::string& name, const std::string& title, const POINT& pos)
 {
 	m_key = key & 0x7FFF;
 	SetBoxContent(name, title);
@@ -582,7 +582,7 @@ void CPersonalShopTitleImp::CShopTitleDrawObj::SetBoxContent(const std::string& 
 	CalculateBooleanSize(name, m_topTitle, m_bottomTitle, m_size);
 }
 
-void CPersonalShopTitleImp::CShopTitleDrawObj::SetBoxPos(POINT& pos)
+void CPersonalShopTitleImp::CShopTitleDrawObj::SetBoxPos(const POINT& pos)
 {
 	m_pos = pos;
 }

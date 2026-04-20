@@ -533,7 +533,7 @@ bool SEASON3B::CNewUIButton::Render(bool RendOption)
 
 void SEASON3B::CNewUIButton::CurSize(WORD uw, WORD uv)
 {
-	for (ButtonStateMap::iterator& pair = m_ButtonInfo.begin(); pair != m_ButtonInfo.end(); pair++)
+	for (ButtonStateMap::iterator pair = m_ButtonInfo.begin(); pair != m_ButtonInfo.end(); pair++)
 	{
 		ButtonInfo* btinfo = &pair->second;
 

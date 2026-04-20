@@ -11,7 +11,6 @@
 #include "stdafx.h"
 
 //#include "UIWindows.h"
-#include "Public.h"
 #include "ZzzOpenglUtil.h"
 #include "ZzzBMD.h"
 #include "ZzzInfomation.h"
@@ -23,7 +22,9 @@
 #include "ZzzEffect.h"
 #include "DSPlaySound.h"
 #include "WSClient.h"
+#ifdef RESOURCE_MANAGER
 #include "CSResourceManager.h"
+#endif
 
 #ifdef RESOURCE_MANAGER
 

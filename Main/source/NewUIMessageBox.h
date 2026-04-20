@@ -316,6 +316,11 @@ namespace SEASON3B
 			}
 			return pMsgBox;
 		}
+		template <class T>
+		T* NewMessageBox(CNewUIMessageBoxFactory::TContainer<T>&& container)
+		{
+			return NewMessageBox(container);
+		}
 		void DeleteMessageBox(const CNewUIMessageBoxBase* pObj);
 		void PopMessageBox();
 		void PopAllMessageBoxes();
@@ -390,8 +395,28 @@ namespace SEASON3B
 		
 		return container.SetLayout();
 	}
+
+	template <class _L>
+	bool CreateMessageBox(TMsgBoxLayoutContainer<_L>&& container)
+	{
+		if(false == container.Create()) //. MessageBox Layout
+			return false;
+
+		return container.SetLayout();
+	}
 	template <class _L, class _M>
 		bool CreateMessageBox(TMsgBoxLayoutContainer<_L>& container, _M** ppMsgBox)
+	{
+		if(false == container.Create()) //. MessageBox Layout
+			return false;
+		if(ppMsgBox)
+			*ppMsgBox = TMsgBoxLayout<_M>::GetMsgBox();
+
+		return container.SetLayout();
+	}
+
+	template <class _L, class _M>
+	bool CreateMessageBox(TMsgBoxLayoutContainer<_L>&& container, _M** ppMsgBox)
 	{
 		if(false == container.Create()) //. MessageBox Layout
 			return false;
@@ -405,4 +430,3 @@ namespace SEASON3B
 #define MSGBOX_LAYOUT_CLASS(x) SEASON3B::TMsgBoxLayoutContainer<x>()
 #define MSGBOX_CLASS(x) SEASON3B::CNewUIMessageBoxFactory::TContainer<x>()
 #define g_MessageBox SEASON3B::CNewUIMessageBoxMng::GetInstance()
-

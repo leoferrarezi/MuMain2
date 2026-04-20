@@ -2,16 +2,24 @@
 //
 //////////////////////////////////////////////////////////////////////
 
+#ifndef __ANDROID__
 #define DIRECTINPUT_VERSION 0x0800
+#endif
 
 #include "stdafx.h"
+#ifndef __ANDROID__
 #include <ddraw.h>
 #include <dinput.h>
 #include <dmusicc.h>
 #include <windows.h>
 #include <eh.h>
 #include <imagehlp.h>
+#endif
 #include "ErrorReport.h"
+
+#ifdef __ANDROID__
+CErrorReport g_ErrorReport;
+#endif
 
 void DeleteSocket();
 
@@ -253,6 +261,8 @@ void CErrorReport::WriteOpenGLInfo(void)
 	glGetIntegerv(GL_MAX_VIEWPORT_DIMS, iResult);
 	Write("Max Viewport size\t: %d x %d\r\n", iResult[0], iResult[1]);
 }
+
+#ifndef __ANDROID__
 
 void CErrorReport::WriteImeInfo(HWND hWnd)
 {
@@ -712,6 +722,7 @@ void GetCPUInfo(ER_SystemInfo* si)
 }
 
 
+#ifndef __ANDROID__
 typedef HRESULT(WINAPI* DIRECTDRAWCREATE)(GUID*, LPDIRECTDRAW*, IUnknown*);
 typedef HRESULT(WINAPI* DIRECTDRAWCREATEEX)(GUID*, VOID**, REFIID, IUnknown*);
 typedef HRESULT(WINAPI* DIRECTINPUTCREATE)(HINSTANCE, DWORD, LPDIRECTINPUT*,
@@ -991,3 +1002,35 @@ void GetSystemInfo(ER_SystemInfo* si)
 	wsprintf(si->m_lpszDxVersion, "Direct-X %d.%d", dwDX >> 8, dwDX & 0xFF);
 }
 
+#endif // !__ANDROID__ (DirectDraw/DirectInput section)
+
+#else
+
+void CErrorReport::WriteImeInfo(HWND hWnd)
+{
+	(void)hWnd;
+	Write("<IME information>\r\n");
+	Write("IME information is not available on Android.\r\n");
+}
+
+void CErrorReport::WriteSoundCardInfo(void)
+{
+	Write("<Sound card information>\r\n");
+	Write("Sound card information is not available on Android.\r\n");
+	AddSeparator();
+}
+
+void GetSystemInfo(ER_SystemInfo* si)
+{
+	if (si == nullptr)
+	{
+		return;
+	}
+
+	ZeroMemory(si, sizeof(ER_SystemInfo));
+	strcpy(si->m_lpszCPU, "Unknown");
+	strcpy(si->m_lpszOS, "Android");
+	strcpy(si->m_lpszDxVersion, "OpenGL ES");
+}
+
+#endif // __ANDROID__

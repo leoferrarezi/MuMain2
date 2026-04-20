@@ -1,4 +1,4 @@
-#include "stdafx.h"
+#include "../Main/source/stdafx.h"
 #include "CCRC32.h"
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -126,10 +126,18 @@ bool CCRC32::FileCRC(const char *sFileName, unsigned long *ulOutCRC, unsigned lo
 	unsigned char *sBuf = NULL;
 	int iBytesRead = 0;
 
+	#ifdef __ANDROID__
+	fSource = fopen(sFileName, "rb");
+	if (fSource == NULL)
+	{
+		return false; // Failed to open file for read access.
+	}
+	#else
 	if(fopen_s(&fSource,sFileName, "rb") != NULL)
 	{
 		return false; //Failed to open file for read access.
 	}
+	#endif
 
 	if(!(sBuf = (unsigned char *)malloc(ulBufferSize))) //Allocate memory for file buffering.
 	{
